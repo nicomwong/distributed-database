@@ -5,16 +5,49 @@ import sys
 import threading
 import time
 
+from DictServer import *
 
-def broadcastToServers(msg):
+class BallotNum:
+    
+    def __init__(self, seqNum, PID, depth):
+        self.seqNum = seqNum
+        self.PID = PID
+        self.depth = depth
+
+    def __repr__(self):
+        return f"BallotNum({self.seqNum}, {self.PID}, {self.depth})"
+
+    # Operators
+    def __lt__(self, other):
+        return (self.seqNum, self.PID) < (other.seqNum, other.PID)
+
+    def __eq__(self, other):
+        return (self.seqNum, self.PID) == (other.seqNum, other.PID)
+
+    def __ne__(self, other):
+        return not(self == other)
+
+    def __gt__(self, other):
+        return not(self < other) and not(self == other)
+
+    def __ge__(self, other):
+        return self == other or self > other
+
+
+def sendMessage(msgTokens, destination):
+    # print("msgTOkens:", msgTokens)
+    msgTokenStrings = [str(token) for token in msgTokens] # Convert tokens to strings
+    msg = '-'.join(msgTokenStrings) # Separate tokens by delimiter
+
+    mySock.sendto(msg.encode(), destination)
+    print(f"Sent message \"{msg}\" to server at port {destination[1]}")
+
+def broadcastToServers(*msgTokens):
     for addr in serverAddresses:
-        mySock.sendto(msg.encode("ascii"), addr)
-        print(f"Sent message \"{msg}\" to server at port {addr[1]}")
-
+        sendMessage(msgTokens, addr)
 
 def DEBUG():
     print(f"num of running threads: {threading.active_count()}")
-
 
 def handleUserInput():
     while True:
@@ -36,48 +69,80 @@ def handleUserInput():
                 msg = cmdArgs[1].encode()
                 recipient = (socket.gethostname(), int(cmdArgs[2]))
 
-                mySock.sendto(msg, recipient)
-
+                sendMessage(msg, recipient)
 
 def handleIncomingMsg(msg, addr):
     global leaderElection
     global ballotNum
+    global highestB, valWithHighestB, valsAllNone
+
     print(f"Received message \"{msg}\" from machine at {addr}")
 
-    msgContents = msg.split()
+    msgTokens = msg.split('-')
 
     # Determine whether from client or server
     if addr in serverAddresses:
-        # Handle server msg
-        if msgContents[0] == "prepare":
-            bal = (int(msgContents[1]), int(
-                msgContents[2]), int(msgContents[3]))
 
-            if (bal[0], bal[1]) >= (ballotNum[0], ballotNum[1]) and bal[2] >= ballotNum[2]:
+        # Prepare
+        if msgTokens[0] == "prepare":
+            bal = eval(msgTokens[1])
+
+            if bal >= ballotNum and bal.depth >= ballotNum.depth:
                 ballotNum = bal
-                mySock.sendto(
-                    f"promise {ballotNum} {acceptNum} {acceptVal}".encode("ascii"), addr)
+                sendMessage( ("promise", ballotNum, acceptNum, acceptVal), addr)
 
-        if msgContents[0] == "promise":
+        # Promise
+        if msgTokens[0] == "promise":
             leaderElection += 1
-            receivedVal = Block()
+            
+            balNum = eval(msgTokens[1])
+            b = eval(msgTokens[2])
+            val = eval(msgTokens[3])
+            
+            # Check if all vals are None
+            valsAllNone = valsAllNone and (val is None)
+
+            # Eventually, this gets the val with the highest b
+            if b > highestB:
+                highestB = b
+                valWithHighestB = val
+                
+            
 
     else:
         # Handle client msg
-        if msgContents[0] == "leader":
-            ballotNum[0] += 1
+        if msgTokens[0] == "leader":
+            ballotNum.seqNum += 1
             threading.Thread(target=sendPrepare, args=(
                 ballotNum,), daemon=True).start()
 
 
 def sendPrepare(ballotNum):
-    msg = f"prepare {ballotNum}"
-    broadcastToServers(msg)
+    global valsAllNone, highestB, valWithHighestB
 
+    # Reset election phase variables
+    valsAllNone = True
+    highestB = BallotNum(-1, -1, 0)
+    valWithHighestB = None
+
+    # Broadcast prepare
+    broadcastToServers("prepare", ballotNum)
+
+    # Wait timeout
     time.sleep(5)
-    # majority
+
     if leaderElection >= numServers / 2 + 1:
-        pass
+        # Received majority
+        if valsAllNone:
+            pass
+            # Do nothing, myVal should be set to initial val earlier
+
+        else:
+            myVal = valWithHighestB
+        
+        # Broadcast accept
+        broadcastToServers("accept", ballotNum, myVal)
+
     else:
         pass
 
@@ -93,12 +158,15 @@ serverID = int(sys.argv[1])
 serverPort = basePort + serverID
 leaderElection = 0
 
-# BallotNum
-ballotNum = (0, serverID, 0)
+# Local variables
+ballotNum = BallotNum(0, serverID, 0)
 acceptNum = ballotNum
-
 acceptVal = None
 myVal = None
+
+# Election phase variables
+valsAllNone = True
+highestB = BallotNum(-1, -1, 0)
 
 # My socket
 mySock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
