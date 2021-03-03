@@ -137,7 +137,7 @@ def sendPrepare(ballotNum):
     time.sleep(5)
     print("Woke up")
 
-    if leaderElection >= (int(numServers / 2) + 1):
+    if leaderElection > numServers / 2:
         # Received majority
         print("Received majority")
         print(f"valsAllNone: {valsAllNone}")
