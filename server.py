@@ -52,7 +52,7 @@ def broadcastToServers(*msgTokens):
 
 def DEBUG():
     print(f"num of running threads: {threading.active_count()}")
-    print(f"leaderElection: {leaderElection}")
+    print(f"promiseCount: {promiseCount}")
 
 
 def handleUserInput():
@@ -79,7 +79,7 @@ def handleUserInput():
 
 
 def handleIncomingMsg(msg, addr):
-    global leaderElection
+    global promiseCount
     global ballotNum
     global highestB, valWithHighestB, valsAllNone
 
@@ -100,7 +100,7 @@ def handleIncomingMsg(msg, addr):
 
         # Promise
         if msgTokens[0] == "promise":
-            leaderElection += 1
+            promiseCount += 1
 
             balNum = eval(msgTokens[1])
             b = eval(msgTokens[2])
@@ -123,24 +123,26 @@ def handleIncomingMsg(msg, addr):
 
 
 def sendPrepare(ballotNum):
-    global valsAllNone, highestB, valWithHighestB, myVal
+    global valsAllNone, highestB, valWithHighestB, promiseCount
+    global myVal
 
     # Reset election phase variables
     valsAllNone = True
     highestB = BallotNum(-1, -1, 0)
     valWithHighestB = None
+    promiseCount = 1  # Initially 1 since it accepts itself
 
     # Broadcast prepare
     broadcastToServers("prepare", ballotNum)
 
     # Wait timeout
     time.sleep(5)
-    print("Woke up")
+    print(f"Checking promise count. promiseCount = {promiseCount}")
 
-    if leaderElection > numServers / 2:
+    if promiseCount > numServers / 2:
         # Received majority
-        print("Received majority")
-        print(f"valsAllNone: {valsAllNone}")
+        print("I am now the leader!")
+        # print(f"valsAllNone: {valsAllNone}")
         if valsAllNone:
             pass
             # Do nothing, myVal should be set to initial val earlier
@@ -152,6 +154,7 @@ def sendPrepare(ballotNum):
         broadcastToServers("accept", ballotNum, myVal)
 
     else:
+        print("I lost the election")
         pass
 
 
@@ -164,7 +167,6 @@ if len(sys.argv) != 2:
 
 serverID = int(sys.argv[1])
 serverPort = basePort + serverID
-leaderElection = 0
 
 # Local variables
 ballotNum = BallotNum(0, serverID, 0)
@@ -175,6 +177,8 @@ myVal = None
 # Election phase variables
 valsAllNone = True
 highestB = BallotNum(-1, -1, 0)
+valWithHighestB = None
+promiseCount = 1
 
 # My socket
 mySock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
