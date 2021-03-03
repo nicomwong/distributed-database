@@ -7,8 +7,9 @@ import time
 
 from DictServer import *
 
+
 class BallotNum:
-    
+
     def __init__(self, seqNum, PID, depth):
         self.seqNum = seqNum
         self.PID = PID
@@ -36,18 +37,23 @@ class BallotNum:
 
 def sendMessage(msgTokens, destination):
     # print("msgTOkens:", msgTokens)
-    msgTokenStrings = [str(token) for token in msgTokens] # Convert tokens to strings
-    msg = '-'.join(msgTokenStrings) # Separate tokens by delimiter
+    msgTokenStrings = [str(token)
+                       for token in msgTokens]  # Convert tokens to strings
+    msg = '-'.join(msgTokenStrings)  # Separate tokens by delimiter
 
     mySock.sendto(msg.encode(), destination)
     print(f"Sent message \"{msg}\" to server at port {destination[1]}")
+
 
 def broadcastToServers(*msgTokens):
     for addr in serverAddresses:
         sendMessage(msgTokens, addr)
 
+
 def DEBUG():
     print(f"num of running threads: {threading.active_count()}")
+    print(f"leaderElection: {leaderElection}")
+
 
 def handleUserInput():
     while True:
@@ -71,6 +77,7 @@ def handleUserInput():
 
                 sendMessage(msg, recipient)
 
+
 def handleIncomingMsg(msg, addr):
     global leaderElection
     global ballotNum
@@ -89,16 +96,16 @@ def handleIncomingMsg(msg, addr):
 
             if bal >= ballotNum and bal.depth >= ballotNum.depth:
                 ballotNum = bal
-                sendMessage( ("promise", ballotNum, acceptNum, acceptVal), addr)
+                sendMessage(("promise", ballotNum, acceptNum, acceptVal), addr)
 
         # Promise
         if msgTokens[0] == "promise":
             leaderElection += 1
-            
+
             balNum = eval(msgTokens[1])
             b = eval(msgTokens[2])
             val = eval(msgTokens[3])
-            
+
             # Check if all vals are None
             valsAllNone = valsAllNone and (val is None)
 
@@ -106,8 +113,6 @@ def handleIncomingMsg(msg, addr):
             if b > highestB:
                 highestB = b
                 valWithHighestB = val
-                
-            
 
     else:
         # Handle client msg
@@ -118,7 +123,7 @@ def handleIncomingMsg(msg, addr):
 
 
 def sendPrepare(ballotNum):
-    global valsAllNone, highestB, valWithHighestB
+    global valsAllNone, highestB, valWithHighestB, myVal
 
     # Reset election phase variables
     valsAllNone = True
@@ -130,16 +135,19 @@ def sendPrepare(ballotNum):
 
     # Wait timeout
     time.sleep(5)
+    print("Woke up")
 
-    if leaderElection >= numServers / 2 + 1:
+    if leaderElection >= (int(numServers / 2) + 1):
         # Received majority
+        print("Received majority")
+        print(f"valsAllNone: {valsAllNone}")
         if valsAllNone:
             pass
             # Do nothing, myVal should be set to initial val earlier
 
         else:
             myVal = valWithHighestB
-        
+
         # Broadcast accept
         broadcastToServers("accept", ballotNum, myVal)
 
