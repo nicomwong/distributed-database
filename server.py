@@ -3,6 +3,7 @@ import socket
 import threading
 import sys
 import threading
+import time
 
 
 def broadcastToServers(msg):
@@ -39,15 +40,45 @@ def handleUserInput():
 
 
 def handleIncomingMsg(msg, addr):
+    global leaderElection
+    global ballotNum
     print(f"Received message \"{msg}\" from machine at {addr}")
+
+    msgContents = msg.split()
 
     # Determine whether from client or server
     if addr in serverAddresses:
         # Handle server msg
-        pass
+        if msgContents[0] == "prepare":
+            bal = (int(msgContents[1]), int(
+                msgContents[2]), int(msgContents[3]))
+
+            if (bal[0], bal[1]) >= (ballotNum[0], ballotNum[1]) and bal[2] >= ballotNum[2]:
+                ballotNum = bal
+                mySock.sendto(
+                    f"promise {ballotNum} {acceptNum} {acceptVal}".encode("ascii"), addr)
+
+        if msgContents[0] == "promise":
+            leaderElection += 1
+            receivedVal = Block()
 
     else:
         # Handle client msg
+        if msgContents[0] == "leader":
+            ballotNum[0] += 1
+            threading.Thread(target=sendPrepare, args=(
+                ballotNum,), daemon=True).start()
+
+
+def sendPrepare(ballotNum):
+    msg = f"prepare {ballotNum}"
+    broadcastToServers(msg)
+
+    time.sleep(5)
+    # majority
+    if leaderElection >= numServers / 2 + 1:
+        pass
+    else:
         pass
 
 
@@ -60,6 +91,14 @@ if len(sys.argv) != 2:
 
 serverID = int(sys.argv[1])
 serverPort = basePort + serverID
+leaderElection = 0
+
+# BallotNum
+ballotNum = (0, serverID, 0)
+acceptNum = ballotNum
+
+acceptVal = None
+myVal = None
 
 # My socket
 mySock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
