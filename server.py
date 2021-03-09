@@ -10,20 +10,20 @@ from DictServer import *
 
 class BallotNum:
 
-    def __init__(self, seqNum, PID, depth):
-        self.seqNum = seqNum
+    def __init__(self, num, PID, depth):
+        self.num = num
         self.PID = PID
         self.depth = depth
 
     def __repr__(self):
-        return f"BallotNum({self.seqNum}, {self.PID}, {self.depth})"
+        return f"BallotNum({self.num}, {self.PID}, {self.depth})"
 
     # Operators
     def __lt__(self, other):
-        return (self.seqNum, self.PID) < (other.seqNum, other.PID)
+        return (self.num, self.PID) < (other.num, other.PID)
 
     def __eq__(self, other):
-        return (self.seqNum, self.PID) == (other.seqNum, other.PID)
+        return (self.num, self.PID) == (other.num, other.PID)
 
     def __ne__(self, other):
         return not(self == other)
@@ -35,25 +35,135 @@ class BallotNum:
         return self == other or self > other
 
 
-def sendMessage(msgTokens, destination):
-    # print("msgTOkens:", msgTokens)
-    msgTokenStrings = [str(token)
-                       for token in msgTokens]  # Convert tokens to strings
-    msg = '-'.join(msgTokenStrings)  # Separate tokens by delimiter
+class Server:
 
-    mySock.sendto(msg.encode(), destination)
-    print(f"Sent message \"{msg}\" to server at port {destination[1]}")
+    # Class vars
+    basePort = 8000
+    numServers = 3
 
+    def __init__(self, serverID):
+        cls = self.__class__
 
-def broadcastToServers(*msgTokens):
-    for addr in serverAddresses:
-        sendMessage(msgTokens, addr)
+        # My address
+        self.ID = serverID
+        self.port = cls.basePort + self.ID
 
+        # Main Paxos variables
+        self.ballotNum = BallotNum(0, self.ID, 0)
+        self.acceptNum = BallotNum(0, self.ID, 0)
+        self.acceptVal = None
+        self.myVal = None
 
-def DEBUG():
-    print(f"num of running threads: {threading.active_count()}")
-    print(f"promiseCount: {promiseCount}")
+        # Election phase variables
+        self.valsAllNone = True
+        self.highestB = BallotNum(-1, -1, -1)
+        self.valWithHighestB = None
+        self.promiseCount = -1
 
+        # Collect addresses of other servers
+        self.serverAddresses = []
+        for i in range(cls.numServers - 1):
+            serverPort = cls.basePort + 1 + ( (self.ID + i) % cls.numServers)
+            serverAddr = (socket.gethostbyname(socket.gethostname() ), serverPort)
+            self.serverAddresses.append(serverAddr)
+            # print("Added outgoing server address", serverAddr)
+
+        # Setup my socket
+        self.mySock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.mySock.bind( (socket.gethostname(), self.port) )
+        print("Started server at port", self.port)
+
+        # Concurrently handle receiving messages
+        threading.Thread(target=self.handleIncomingMessages, daemon=True).start()
+
+    def sendMessage(self, msgTokens, destinationAddr):
+        msgTokenStrings = [ str(token)
+                            for token in msgTokens]  # Convert tokens to strings
+        msg = '-'.join(msgTokenStrings)  # Separate tokens by delimiter
+
+        self.mySock.sendto(msg.encode(), destinationAddr)
+        print(f"Sent message \"{msg}\" to server at port {destinationAddr[1]}")
+
+    def broadcastToServers(self, *msgTokens):
+        for addr in self.serverAddresses:
+            self.sendMessage(msgTokens, addr)
+
+    def handleIncomingMessages(self):
+
+        while True:
+            data, addr = self.mySock.recvfrom(4096)  # Blocks until a message arrives
+            msg = data.decode()
+            print(f"Received message \"{msg}\" from machine at {addr}")
+
+            msgTokens = msg.split('-')
+
+            # Determine whether from client or server
+            if addr in self.serverAddresses:
+                # From server
+
+                # Prepare
+                if msgTokens[0] == "prepare":
+                    bal = eval(msgTokens[1])
+
+                    if bal >= self.ballotNum and bal.depth >= self.ballotNum.depth:
+                        self.ballotNum = bal
+                        self.sendMessage(("promise", self.ballotNum, self.acceptNum, self.acceptVal), addr)
+
+                # Promise
+                if msgTokens[0] == "promise":
+                    self.promiseCount += 1
+
+                    balNum = eval(msgTokens[1])
+                    b = eval(msgTokens[2])
+                    val = eval(msgTokens[3])
+
+                    # Check if all vals are None
+                    self.valsAllNone = self.valsAllNone and (val is None)
+
+                    # Eventually, this gets the val with the highest b
+                    if b > self.highestB:
+                        self.highestB = b
+                        self.valWithHighestB = val
+
+            else:
+                # From client
+                if msgTokens[0] == "leader":
+                    self.ballotNum.num += 1
+                    threading.Thread(target=self.electionPhase, daemon=True).start()
+
+    def electionPhase(self):
+        cls = self.__class__
+
+        # Reset election phase variables
+        self.valsAllNone = True
+        self.highestB = BallotNum(-1, -1, 0)
+        self.valWithHighestB = None
+        self.promiseCount = 1  # Initially 1 since it accepts itself
+
+        # Broadcast prepare
+        self.broadcastToServers("prepare", self.ballotNum)
+
+        # Wait timeout
+        time.sleep(5)
+        print(f"Checking promise count. promiseCount = {self.promiseCount}")
+
+        if self.promiseCount > cls.numServers / 2:
+            # Received majority
+            print("I am now the leader!")
+            # print(f"self.valsAllNone: {self.valsAllNone}")
+            if self.valsAllNone:
+                pass
+                # self.myVal will be set in self.processOperationQueue
+
+            else:
+                self.myVal = self.valWithHighestB
+
+            # Broadcast accept
+            self.broadcastToServers("accept", self.ballotNum, self.myVal)
+
+        else:
+            print("I lost the election")
+            pass
 
 def handleUserInput():
     while True:
@@ -68,97 +178,18 @@ def handleUserInput():
         elif len(cmdArgs) == 2:
             if cmd == "broadcast":
                 msg = cmdArgs[1]
-                broadcastToServers(msg)
+                server.broadcastToServers(msg)
 
         elif len(cmdArgs) == 3:
             if cmd == "send":    # send <msg> <port>
-                msg = cmdArgs[1].encode()
+                msg = cmdArgs[1]
                 recipient = (socket.gethostname(), int(cmdArgs[2]))
 
-                sendMessage(msg, recipient)
+                server.sendMessage(msg, recipient)
 
-
-def handleIncomingMsg(msg, addr):
-    global promiseCount
-    global ballotNum
-    global highestB, valWithHighestB, valsAllNone
-
-    print(f"Received message \"{msg}\" from machine at {addr}")
-
-    msgTokens = msg.split('-')
-
-    # Determine whether from client or server
-    if addr in serverAddresses:
-
-        # Prepare
-        if msgTokens[0] == "prepare":
-            bal = eval(msgTokens[1])
-
-            if bal >= ballotNum and bal.depth >= ballotNum.depth:
-                ballotNum = bal
-                sendMessage(("promise", ballotNum, acceptNum, acceptVal), addr)
-
-        # Promise
-        if msgTokens[0] == "promise":
-            promiseCount += 1
-
-            balNum = eval(msgTokens[1])
-            b = eval(msgTokens[2])
-            val = eval(msgTokens[3])
-
-            # Check if all vals are None
-            valsAllNone = valsAllNone and (val is None)
-
-            # Eventually, this gets the val with the highest b
-            if b > highestB:
-                highestB = b
-                valWithHighestB = val
-
-    else:
-        # Handle client msg
-        if msgTokens[0] == "leader":
-            ballotNum.seqNum += 1
-            threading.Thread(target=sendPrepare, args=(
-                ballotNum,), daemon=True).start()
-
-
-def sendPrepare(ballotNum):
-    global valsAllNone, highestB, valWithHighestB, promiseCount
-    global myVal
-
-    # Reset election phase variables
-    valsAllNone = True
-    highestB = BallotNum(-1, -1, 0)
-    valWithHighestB = None
-    promiseCount = 1  # Initially 1 since it accepts itself
-
-    # Broadcast prepare
-    broadcastToServers("prepare", ballotNum)
-
-    # Wait timeout
-    time.sleep(5)
-    print(f"Checking promise count. promiseCount = {promiseCount}")
-
-    if promiseCount > numServers / 2:
-        # Received majority
-        print("I am now the leader!")
-        # print(f"valsAllNone: {valsAllNone}")
-        if valsAllNone:
-            pass
-            # Do nothing, myVal should be set to initial val earlier
-
-        else:
-            myVal = valWithHighestB
-
-        # Broadcast accept
-        broadcastToServers("accept", ballotNum, myVal)
-
-    else:
-        print("I lost the election")
-        pass
-
-
-basePort = 8000
+def DEBUG():
+    print(f"num of running threads: {threading.active_count()}")
+    print(f"promiseCount: {server.promiseCount}")
 
 # Parse cmdline args
 if len(sys.argv) != 2:
@@ -166,40 +197,8 @@ if len(sys.argv) != 2:
     sys.exit()
 
 serverID = int(sys.argv[1])
-serverPort = basePort + serverID
 
-# Local variables
-ballotNum = BallotNum(0, serverID, 0)
-acceptNum = ballotNum
-acceptVal = None
-myVal = None
+server = Server(serverID)   # Start the server
 
-# Election phase variables
-valsAllNone = True
-highestB = BallotNum(-1, -1, 0)
-valWithHighestB = None
-promiseCount = 1
-
-# My socket
-mySock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-mySock.bind((socket.gethostname(), serverPort))
-print("Started server at port", serverPort)
-
-# Addresses of other servers
-numServers = 3
-serverAddresses = []
-for i in range(numServers - 1):
-    serverPort = basePort + 1 + ((serverID + i) % numServers)
-    serverAddr = (socket.gethostbyname(socket.gethostname()), serverPort)
-    # serverSocketOut = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # serverSocketOut.connect( (socket.gethostname(), serverPort) )
-    print("Added outgoing server address", serverAddr)
-    serverAddresses.append(serverAddr)
-
-threading.Thread(target=handleUserInput, daemon=True).start()
-
-# Poll for incoming messages
-while True:
-    data, addr = mySock.recvfrom(4096)
-    threading.Thread(target=handleIncomingMsg, args=(
-        data.decode("ascii"), addr), daemon=True).start()
+# Handle stdin
+handleUserInput()
