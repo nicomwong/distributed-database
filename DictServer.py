@@ -4,6 +4,7 @@ import threading
 import sys
 import pickle
 
+from Operation import Operation
 
 class KVStore:
     def __init__(self):
@@ -14,36 +15,6 @@ class KVStore:
 
     def put(self, key, value):
         self._dict[key] = value
-
-
-class Operation:
-    def __init__(self, operation, **kwargs):
-        self.op = operation
-
-        if 'key' in kwargs:
-            self.key = kwargs['key']
-
-        if 'value' in kwargs:
-            self.value = kwargs['value']
-
-    @classmethod
-    def Put(cls, key, value):
-        return cls("put", key=key, value=value)
-
-    @classmethod
-    def Get(cls, key):
-        return cls("get", key=key)
-
-    def __repr__(self):
-        rep = f"Operation({repr(self.op)}"
-
-        for k, v in vars(self).items():
-            if k != "op":
-                rep += f", {k}={repr(v)}"
-
-        rep += ")"
-
-        return rep
 
 
 class Block:
@@ -82,25 +53,25 @@ class DictServer:
     pass
 
 
-putOp = Operation.Put(1, 2)
-getOp = Operation.Get(1)
+# putOp = Operation.Put(1, 2)
+# getOp = Operation.Get(1)
 
-print(putOp)
-print(getOp)
+# print(putOp)
+# print(getOp)
 
-blocks = []
+# blocks = []
 
-blocks.append(Block(putOp, 123, 456))
-print(blocks[0])
+# blocks.append(Block(putOp, 123, 456))
+# print(blocks[0])
 
-blocks.append(Block(getOp, 123, 654))
-print(blocks[1])
+# blocks.append(Block(getOp, 123, 654))
+# print(blocks[1])
 
-bc1 = BlockChain()
-for block in blocks:
-    bc1.append(block)
+# bc1 = BlockChain()
+# for block in blocks:
+#     bc1.append(block)
 
-bc1.write("test")
+# bc1.write("test")
 
-bc2 = BlockChain.read("test")
-print(bc2)
+# bc2 = BlockChain.read("test")
+# print(bc2)
