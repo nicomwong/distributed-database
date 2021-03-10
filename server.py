@@ -69,8 +69,8 @@ class Server:
             # print("Added outgoing server address", serverAddr)
 
         # Setup my socket
-        self.mySock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.mySock.bind( (socket.gethostname(), self.port) )
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.bind( (socket.gethostname(), self.port) )
         print("Started server at port", self.port)
 
         # Concurrently handle receiving messages
@@ -81,7 +81,7 @@ class Server:
                             for token in msgTokens]  # Convert tokens to strings
         msg = '-'.join(msgTokenStrings)  # Separate tokens by delimiter
 
-        self.mySock.sendto(msg.encode(), destinationAddr)
+        self.sock.sendto(msg.encode(), destinationAddr)
         print(f"Sent message \"{msg}\" to server at port {destinationAddr[1]}")
 
     def broadcastToServers(self, *msgTokens):
@@ -91,7 +91,7 @@ class Server:
     def handleIncomingMessages(self):
 
         while True:
-            data, addr = self.mySock.recvfrom(4096)  # Blocks until a message arrives
+            data, addr = self.sock.recvfrom(4096)  # Blocks until a message arrives
             msg = data.decode()
             print(f"Received message \"{msg}\" from machine at {addr}")
 
@@ -185,7 +185,7 @@ def handleUserInput():
                 msg = cmdArgs[1]
                 recipient = (socket.gethostname(), int(cmdArgs[2]))
 
-                server.sendMessage(msg, recipient)
+                server.sendMessage( (msg,), recipient)
 
 def DEBUG():
     print(f"num of running threads: {threading.active_count()}")
