@@ -1,7 +1,10 @@
 
 import socket
 import threading
+import queue
 import sys
+
+from Operation import Operation
 
 class Client:
 
@@ -42,12 +45,29 @@ def handleUserInput():
 
         cmd = cmdArgs[0]
 
-        if len(cmdArgs) == 3:
-            if cmd == "send":    # send <msg> <port>
+        if len(cmdArgs) == 2:
+            if cmd == "get":    # get <key>
+                key = cmdArgs[1]
+                op = Operation.Get(key)
+                operationQueue.put(op)
+                # print("New operation queue: ", operationQueue.queue)
+        
+        elif len(cmdArgs) == 3:
+            if cmd == "put":    # put <key> <value>
+                key = cmdArgs[1]
+                value = cmdArgs[2]
+                op = Operation.Put(key, value)
+                operationQueue.put(op)
+                # print("New operation queue: ", operationQueue.queue)
+
+            elif cmd == "send": # send <msg> <port>
                 msg = cmdArgs[1]
                 recipient = (socket.gethostname(), int(cmdArgs[2]) )
 
                 client.sendMessage( (msg,), recipient)
+            
+        else:
+            print("Invalid command.")
 
 if len(sys.argv) != 2:
     print(f"Usage: python3 {sys.argv[0]} clientID")
@@ -57,6 +77,8 @@ clientID = int(sys.argv[1])
 
 # Start client
 client = Client(clientID)
+
+operationQueue = queue.Queue()
 
 # Handle stdin
 handleUserInput()
