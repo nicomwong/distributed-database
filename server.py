@@ -68,6 +68,7 @@ class Server:
             self.serverAddresses.append(serverAddr)
             # print("Added outgoing server address", serverAddr)
 
+    def start(self):
         # Setup my socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind( (socket.gethostname(), self.port) )
@@ -199,6 +200,7 @@ if len(sys.argv) != 2:
 serverID = int(sys.argv[1])
 
 server = Server(serverID)   # Start the server
+server.start()
 
 # Handle stdin
 handleUserInput()
