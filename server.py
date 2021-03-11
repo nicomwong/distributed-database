@@ -48,6 +48,9 @@ class Server:
         self.ID = serverID
         self.port = cls.basePort + self.ID
 
+        # Simulation variables
+        self.propagationDelay = 2
+
         # Main Paxos variables
         self.ballotNum = BallotNum(0, self.ID, 0)
         self.acceptNum = BallotNum(0, self.ID, 0)
@@ -78,12 +81,18 @@ class Server:
         threading.Thread(target=self.handleIncomingMessages, daemon=True).start()
 
     def sendMessage(self, msgTokens, destinationAddr):
+        "Sends a message with components msgTokens to destinationAddr with a simulated self.propagationDelay second delay (Non-blocking)"
         msgTokenStrings = [ str(token)
                             for token in msgTokens]  # Convert tokens to strings
         msg = '-'.join(msgTokenStrings)  # Separate tokens by delimiter
 
-        self.sock.sendto(msg.encode(), destinationAddr)
         print(f"Sent message \"{msg}\" to server at port {destinationAddr[1]}")
+        threading.Thread(target=self._sendMessageWithDelay, args=(msg, destinationAddr), daemon=True).start()
+
+    def _sendMessageWithDelay(self, msg, destinationAddr):
+        "Sends a message with components msgTokens to destinationAddr with a simulated self.propagationDelay second delay (Blocking)"
+        time.sleep(self.propagationDelay)
+        self.sock.sendto(msg.encode(), destinationAddr)
 
     def broadcastToServers(self, *msgTokens):
         for addr in self.serverAddresses:
