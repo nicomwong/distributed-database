@@ -1,7 +1,6 @@
 
 import socket
 import threading
-import multiprocessing  # For timeouts
 import queue
 import sys
 
@@ -32,7 +31,7 @@ class Client:
         # Setup my socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind( (socket.gethostname(), self.port) )
-        print(f"Started client on port {self.port}")
+        self.printLog(f"Started client on port {self.port}")
 
         # Concurrently handle incoming messages
         threading.Thread(target=self.handleIncomingMessages, daemon=True).start()
@@ -52,26 +51,29 @@ class Client:
             self.nominateNextLeader()
 
             # Start sending operations to the leader
-            while len(self.operationQueue):
-                self.sendLeader(self.operationQueue.queue[0] )  # Send operation    [TODO] Send req ID with query
+            while self.operationQueue.qsize():
+                self._response = None    # Clear the response holder
 
-                timeoutProcess = multiprocessing.Process(target=self.waitForResponse, daemon=True)
-                timeoutProcess.start()
-                timeoutProcess.join(self.queryTimeout)
+                self.sendToLeader(self.operationQueue.queue[0] )  # Send operation to leader   [TODO] Send req ID with query
+
+                terminate = False   # Thread termination flag
+                timeoutThread = threading.Thread(target=self.waitForResponse, args=(lambda:terminate,), daemon=True)
+                timeoutThread.start()
+                timeoutThread.join(self.queryTimeout)
 
                 # Check if timed out
-                if timeoutProcess.is_alive():   # Timed out
-                    print("Timed out waiting for a query response")
+                if timeoutThread.is_alive():   # Timed out
+                    self.printLog("Timed out waiting for a query response")
                     self.leaderAddress = self.nextServer()
-                    timeoutProcess.terminate()
-                    continue    # Assume the leader failed, so restart
+                    terminate = True
+                    break   # Assume the leader failed, so restart
 
                 # Received query response from the leader
                 queryResponse = self._response
 
                 self.operationQueue.get()   # Pop it from the queue
 
-                print(f"[CLIENT] Received query response: {queryResponse}")
+                self.printLog(f"Received query response: {queryResponse}")
 
     def nominateNextLeader(self):
         """
@@ -81,27 +83,28 @@ class Client:
         
         # Nominate servers until one responds with a successful election result
         while True:
-            # print(f"Nominating the server at {self.leaderAddress} to be leader.")
             self._response = None    # Clear the response holder
 
-            self.sendLeader("leader")   # Send nomination
+            self.sendToLeader("leader")   # Send nomination
 
             # Start a thread for timeout
-            timeoutProcess = multiprocessing.Process(target=self.waitForResponse, daemon=True)
-            timeoutProcess.start()
-            timeoutProcess.join(self.nominationTimeout)
+            terminate = False    # Thread termination flag
+            timeoutThread = threading.Thread(target=self.waitForResponse, args=(lambda:terminate,), daemon=True)
+            timeoutThread.start()
+            timeoutThread.join(self.nominationTimeout)
             
             # Check if timed out
-            if timeoutProcess.is_alive():   # Timed out
-                print("Timed out waiting for an election result")
+            if timeoutThread.is_alive():   # Timed out
+                self.printLog("Timed out waiting for an election result")
                 self.leaderAddress = self.nextServer()  # Move onto another server
-                timeoutProcess.terminate()
+                terminate = True
                 continue
 
             # Received nomination response from server
             electionResult = self._response
 
             if electionResult == "success":
+                self.printLog(f"Received election result: {electionResult}")
                 return
 
             elif electionResult == "failure":
@@ -109,7 +112,7 @@ class Client:
                 continue
                 
             else:
-                print("Received unknown nomination result")
+                self.printLog("Received unknown nomination result")
                 continue
           
     def nextServer(self):
@@ -119,15 +122,15 @@ class Client:
         nextServerPort = cls.serverBasePort + 1 + serverID % cls.numServers
         return (socket.gethostbyname(socket.gethostname() ), nextServerPort)
 
-    def waitForResponse(self):
+    def waitForResponse(self, terminate):
         """
-        Blocks until a response is received (from the leader).
+        Blocks until a response is received (from the leader) or the terminate flag is set to True.
         Once it returns, self._response holds the response.
         """
-        while self._response is None:    # Blocks until self._response is set
+        while not(terminate() ) and self._response is None:
             continue
 
-    def sendLeader(self, *msgTokens):
+    def sendToLeader(self, *msgTokens):
         self.sendMessage(msgTokens, self.leaderAddress)
 
     def sendMessage(self, msgTokens, destinationAddr):
@@ -147,6 +150,10 @@ class Client:
             if addr == self.leaderAddress:
                 # Communicating with leader or nominee
                 self._response = msg
+
+    def printLog(self, string):
+        "Prints the input string with the client ID prefixed"
+        print(f"[CLIENT {self.ID}] {string}")
 
 def handleUserInput():
     while True:
