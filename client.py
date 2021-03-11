@@ -166,7 +166,11 @@ def handleUserInput():
                 key = cmdArgs[1]
                 op = Operation.Get(key)
                 client.operationQueue.put(op)
-                # print("New operation queue: ", operationQueue.queue)
+
+            elif cmd == "print":
+                varName = cmdArgs[1]
+                if varName == "operationQueue":
+                    print(f"{varName}: {client.operationQueue.queue}")
         
         elif len(cmdArgs) == 3:
             if cmd == "put":    # put <key> <value>
@@ -174,7 +178,6 @@ def handleUserInput():
                 value = cmdArgs[2]
                 op = Operation.Put(key, value)
                 client.operationQueue.put(op)
-                # print("New operation queue: ", operationQueue.queue)
 
             elif cmd == "send": # send <msg> <port>
                 msg = cmdArgs[1]
