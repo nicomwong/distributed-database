@@ -2,7 +2,6 @@
 import socket
 import threading
 import sys
-import threading
 import time
 
 from DictServer import *
@@ -50,6 +49,7 @@ class Server:
 
         # Simulation variables
         self.propagationDelay = 2
+        self.brokenLinks = set()
 
         # Main Paxos variables
         self.ballotNum = BallotNum(0, self.ID, 0)
@@ -81,16 +81,25 @@ class Server:
         threading.Thread(target=self.handleIncomingMessages, daemon=True).start()
 
     def sendMessage(self, msgTokens, destinationAddr):
-        "Sends a message with components msgTokens to destinationAddr with a simulated self.propagationDelay second delay (Non-blocking)"
+        """
+        Sends a message with components msgTokens to destinationAddr with a simulated self.propagationDelay second delay (Non-blocking).
+        If the link to destinationAddr is broken, then nothing will arrive.
+        """
+
         msgTokenStrings = [ str(token)
                             for token in msgTokens]  # Convert tokens to strings
         msg = '-'.join(msgTokenStrings)  # Separate tokens by delimiter
 
-        print(f"Sent message \"{msg}\" to server at port {destinationAddr[1]}")
+        print(f"Sent message \"{msg}\" to machine at port {destinationAddr[1]}")
+
+        if destinationAddr[1] in self.brokenLinks:
+            # For simulating broken links, the message is sent but never arrives
+            return
+        
         threading.Thread(target=self._sendMessageWithDelay, args=(msg, destinationAddr), daemon=True).start()
 
     def _sendMessageWithDelay(self, msg, destinationAddr):
-        "Sends a message with components msgTokens to destinationAddr with a simulated self.propagationDelay second delay (Blocking)"
+        "Only meant to be used in conjunction with self.sendMessage() to unblock with simulated delay"
         time.sleep(self.propagationDelay)
         self.sock.sendto(msg.encode(), destinationAddr)
 
@@ -102,6 +111,11 @@ class Server:
 
         while True:
             data, addr = self.sock.recvfrom(4096)  # Blocks until a message arrives
+
+            if addr[1] in self.brokenLinks:
+                # For simulating broken links, the message never arrives
+                continue
+
             msg = data.decode()
             print(f"Received message \"{msg}\" from machine at {addr}")
 
@@ -186,9 +200,30 @@ def handleUserInput():
                 DEBUG()
 
         elif len(cmdArgs) == 2:
-            if cmd == "broadcast":
+            if cmd == "failLink":
+                dstPort = int(cmdArgs[1])
+                if dstPort not in server.brokenLinks:
+                    server.brokenLinks.add(dstPort)
+                    print(f"Broke the link between {server.port} and {dstPort}")
+                else:
+                    print(f"The link between {server.port} and {dstPort} is already broken")
+
+            elif cmd == "fixLink":
+                dstPort = int(cmdArgs[1])
+                if dstPort in server.brokenLinks:
+                    server.brokenLinks.remove(dstPort)
+                    print(f"Fixed the link between {server.port} and {dstPort}")
+                else:
+                    print(f"The link between {server.port} and {dstPort} is not broken")
+            
+            elif cmd == "broadcast":
                 msg = cmdArgs[1]
                 server.broadcastToServers(msg)
+
+            elif cmd == "print":
+                varName = cmdArgs[1]
+                if varName == "brokenLinks":
+                    print(f"{varName}: {server.brokenLinks}")
 
         elif len(cmdArgs) == 3:
             if cmd == "send":    # send <msg> <port>
