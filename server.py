@@ -80,6 +80,10 @@ class Server:
         # Concurrently handle receiving messages
         threading.Thread(target=self.handleIncomingMessages, daemon=True).start()
 
+    def cleanExit(self):
+        "Cleanly exits by closing all open sockets and files"
+        self.sock.close()
+
     def sendMessage(self, msgTokens, destinationAddr):
         """
         Sends a message with components msgTokens to destinationAddr with a simulated self.propagationDelay second delay (Non-blocking).
@@ -196,7 +200,12 @@ def handleUserInput():
         cmd = cmdArgs[0]
 
         if len(cmdArgs) == 1:
-            if cmd == "debug":
+            if cmd == "failProcess":
+                print("Crashing...")
+                server.cleanExit()
+                sys.exit()
+
+            elif cmd == "debug":
                 DEBUG()
 
         elif len(cmdArgs) == 2:
