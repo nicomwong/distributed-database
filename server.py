@@ -1,8 +1,10 @@
 
+import queue
 import socket
 import threading
 import sys
 import time
+import pprint
 
 from DictServer import *
 
@@ -50,6 +52,11 @@ class Server:
         # Simulation variables
         self.propagationDelay = 2
         self.brokenLinks = set()
+
+        # Data structures
+        self.blockchain = BlockChain()
+        self.kvstore = KVStore()
+        self.blockQueue = queue.Queue() # Queue of blocks to propose when leader
 
         # Main Paxos variables
         self.ballotNum = BallotNum(0, self.ID, 0)
@@ -232,8 +239,19 @@ def handleUserInput():
 
             elif cmd == "print":
                 varName = cmdArgs[1]
+                print(f"{varName}:")
+
                 if varName == "brokenLinks":
-                    print(f"{varName}: {server.brokenLinks}")
+                    pprint.pprint(server.brokenLinks)
+
+                elif varName == "blockchain":
+                    pprint.pprint(server.blockchain)
+                
+                elif varName == "kvstore":
+                    pprint.pprint(server.kvstore)
+
+                elif varName == "blockQueue":
+                    pprint.pprint(server.blockQueue.queue)
 
         elif len(cmdArgs) == 3:
             if cmd == "send":    # send <msg> <port>

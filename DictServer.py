@@ -10,6 +10,9 @@ class KVStore:
     def __init__(self):
         self._dict = dict()
 
+    def __repr__(self):
+        return repr(self._dict)
+
     def get(self, key):
         return self._dict[key]
 
