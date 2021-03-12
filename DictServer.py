@@ -32,7 +32,7 @@ class Block:
         return f"Block({repr(self.operation)}, {repr(self.nonce)}, {repr(self.hashPointer)})"
 
 
-class BlockChain:
+class Blockchain:
     def __init__(self):
         self._list = list()
 
@@ -70,11 +70,11 @@ class BlockChain:
 # blocks.append(Block(getOp, 123, 654))
 # print(blocks[1])
 
-# bc1 = BlockChain()
+# bc1 = Blockchain()
 # for block in blocks:
 #     bc1.append(block)
 
 # bc1.write("test")
 
-# bc2 = BlockChain.read("test")
+# bc2 = Blockchain.read("test")
 # print(bc2)

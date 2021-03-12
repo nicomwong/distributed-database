@@ -54,7 +54,7 @@ class Server:
         self.brokenLinks = set()
 
         # Data structures
-        self.blockchain = BlockChain()
+        self.blockchain = Blockchain()
         self.kvstore = KVStore()
         self.blockQueue = queue.Queue() # Queue of blocks to propose when leader
 
