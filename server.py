@@ -241,17 +241,20 @@ def handleUserInput():
                 varName = cmdArgs[1]
                 print(f"{varName}:")
 
-                if varName == "brokenLinks":
+                if varName == "brokenLinks" or varName == "bl":
                     pprint.pprint(server.brokenLinks)
 
-                elif varName == "blockchain":
-                    pprint.pprint(server.blockchain)
+                elif varName == "blockchain" or varName == "bc":
+                    pprint.pprint(server.blockchain._list)
                 
-                elif varName == "kvstore":
-                    pprint.pprint(server.kvstore)
+                elif varName == "kvstore" or varName == "kv":
+                    pprint.pprint(server.kvstore._dict)
 
-                elif varName == "blockQueue":
+                elif varName == "blockQueue" or varName == "bq":
                     pprint.pprint(server.blockQueue.queue)
+
+                else:
+                    print("Does not exist")
 
         elif len(cmdArgs) == 3:
             if cmd == "send":    # send <msg> <port>
