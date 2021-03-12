@@ -84,6 +84,40 @@ class Server:
         "Cleanly exits by closing all open sockets and files"
         self.sock.close()
 
+    def electionPhase(self):
+        cls = self.__class__
+
+        # Reset election phase variables
+        self.valsAllNone = True
+        self.highestB = BallotNum(-1, -1, 0)
+        self.valWithHighestB = None
+        self.promiseCount = 1  # Initially 1 since it accepts itself
+
+        # Broadcast prepare
+        self.broadcastToServers("prepare", self.ballotNum)
+
+        # Wait timeout
+        time.sleep(5)
+        print(f"Checking promise count. promiseCount = {self.promiseCount}")
+
+        if self.promiseCount > cls.numServers / 2:
+            # Received majority
+            print("I am now the leader!")
+            # print(f"self.valsAllNone: {self.valsAllNone}")
+            if self.valsAllNone:
+                pass
+                # self.myVal will be set in self.processOperationQueue
+
+            else:
+                self.myVal = self.valWithHighestB
+
+            # Broadcast accept
+            self.broadcastToServers("accept", self.ballotNum, self.myVal)
+
+        else:
+            print("I lost the election")
+            pass
+
     def sendMessage(self, msgTokens, destinationAddr):
         """
         Sends a message with components msgTokens to destinationAddr with a simulated self.propagationDelay second delay (Non-blocking).
@@ -159,39 +193,6 @@ class Server:
                     self.ballotNum.num += 1
                     threading.Thread(target=self.electionPhase, daemon=True).start()
 
-    def electionPhase(self):
-        cls = self.__class__
-
-        # Reset election phase variables
-        self.valsAllNone = True
-        self.highestB = BallotNum(-1, -1, 0)
-        self.valWithHighestB = None
-        self.promiseCount = 1  # Initially 1 since it accepts itself
-
-        # Broadcast prepare
-        self.broadcastToServers("prepare", self.ballotNum)
-
-        # Wait timeout
-        time.sleep(5)
-        print(f"Checking promise count. promiseCount = {self.promiseCount}")
-
-        if self.promiseCount > cls.numServers / 2:
-            # Received majority
-            print("I am now the leader!")
-            # print(f"self.valsAllNone: {self.valsAllNone}")
-            if self.valsAllNone:
-                pass
-                # self.myVal will be set in self.processOperationQueue
-
-            else:
-                self.myVal = self.valWithHighestB
-
-            # Broadcast accept
-            self.broadcastToServers("accept", self.ballotNum, self.myVal)
-
-        else:
-            print("I lost the election")
-            pass
 
 def handleUserInput():
     while True:
