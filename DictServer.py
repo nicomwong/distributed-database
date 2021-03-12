@@ -44,8 +44,12 @@ class BlockChain:
 
     @classmethod
     def read(cls, filename):
-        with open(filename, "rb") as f:
-            return pickle.load(f)
+        try:
+            with open(filename, "rb") as f:
+                return pickle.load(f)
+        except FileNotFoundError as e:
+            print(e)
+            return cls()
 
     def write(self, filename: str):
         with open(filename, "wb") as f:
