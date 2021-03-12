@@ -1,7 +1,7 @@
 
 class Operation:
-    def __init__(self, operation, **kwargs):
-        self.op = operation
+    def __init__(self, operationType, **kwargs):
+        self.type = operationType
 
         if 'key' in kwargs:
             self.key = kwargs['key']
@@ -18,7 +18,7 @@ class Operation:
         return cls("get", key=key)
 
     def __repr__(self):
-        rep = f"Operation({repr(self.op)}"
+        rep = f"Operation({repr(self.type)}"
 
         for k, v in vars(self).items():
             if k != "op":
