@@ -56,10 +56,6 @@ class BlockChain:
             pickle.dump(self, f)
 
 
-class DictServer:
-    pass
-
-
 # putOp = Operation.Put(1, 2)
 # getOp = Operation.Get(1)
 
