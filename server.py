@@ -3,6 +3,7 @@ import queue
 import socket
 import threading
 import sys
+import os
 import time
 import pprint
 
@@ -83,6 +84,12 @@ class Server:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind( (socket.gethostname(), self.port) )
         print("Started server at port", self.port)
+
+        # Recover from stable storage (save file) if there is one
+        saveFileName = f"server{self.ID}_blockchain"
+        if os.path.isfile(saveFileName):
+            self.blockchain = Blockchain.read(saveFileName)
+            self.kvstore = self.blockchain.generateKVStore()
 
         # Concurrently handle receiving messages
         threading.Thread(target=self.handleIncomingMessages, daemon=True).start()
@@ -276,6 +283,7 @@ serverID = int(sys.argv[1])
 
 server = Server(serverID)   # Start the server
 server.start()
-
+server.blockchain.append(Block(Operation.Put('testKey2', 'testValue2'), 'nonce', 1))
+server.blockchain.write(f"server{server.ID}_blockchain")
 # Handle stdin
 handleUserInput()
