@@ -161,32 +161,36 @@ def handleUserInput():
 
         cmd = cmdArgs[0]
 
-        if len(cmdArgs) == 2:
-            if cmd == "get":    # get <key>
-                key = cmdArgs[1]
-                op = Operation.Get(key)
-                client.operationQueue.put(op)
+        try:
+            if len(cmdArgs) == 2:
+                if cmd == "get":    # get <key>
+                    key = eval(cmdArgs[1])
+                    op = Operation.Get(key)
+                    client.operationQueue.put(op)
 
-            elif cmd == "print":
-                varName = cmdArgs[1]
-                if varName == "operationQueue":
-                    print(f"{varName}: {client.operationQueue.queue}")
-        
-        elif len(cmdArgs) == 3:
-            if cmd == "put":    # put <key> <value>
-                key = cmdArgs[1]
-                value = cmdArgs[2]
-                op = Operation.Put(key, value)
-                client.operationQueue.put(op)
-
-            elif cmd == "send": # send <msg> <port>
-                msg = cmdArgs[1]
-                recipient = (socket.gethostname(), int(cmdArgs[2]) )
-
-                client.sendMessage( (msg,), recipient)
+                elif cmd == "print":
+                    varName = cmdArgs[1]
+                    if varName == "operationQueue":
+                        print(f"{varName}: {client.operationQueue.queue}")
             
-        else:
-            print("Invalid command.")
+            elif len(cmdArgs) == 3:
+                if cmd == "put":    # put <key> <value>
+                    key = eval(cmdArgs[1])
+                    value = eval(cmdArgs[2])
+                    op = Operation.Put(key, value)
+                    client.operationQueue.put(op)
+
+                elif cmd == "send": # send <msg> <port>
+                    msg = cmdArgs[1]
+                    recipient = (socket.gethostname(), int(cmdArgs[2]) )
+
+                    client.sendMessage( (msg,), recipient)
+                
+            else:
+                print("Invalid command.")
+        
+        except Exception as e:
+            print(e)
 
 if len(sys.argv) != 2:
     print(f"Usage: python3 {sys.argv[0]} clientID")
