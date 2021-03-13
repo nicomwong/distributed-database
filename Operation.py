@@ -21,7 +21,7 @@ class Operation:
         rep = f"Operation({repr(self.type)}"
 
         for k, v in vars(self).items():
-            if k != "op":
+            if k != "type":
                 rep += f", {k}={repr(v)}"
 
         rep += ")"
