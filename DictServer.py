@@ -42,6 +42,19 @@ class Blockchain:
     def append(self, block: Block):
         self._list.append(block)
 
+    def generateKVStore(self):
+        "Returns the KVStore generated from performing the blockchain's operations in order"
+        kvstore = KVStore()
+        for block in self._list:
+            op = block.operation
+            if op.type == "put":
+                kvstore.put(op.key, op.value)
+            elif op.type == "get":
+                pass
+            else:
+                raise Exception(f"Invalid operation type: {op.type}")
+        return kvstore
+
     @classmethod
     def read(cls, filename):
         try:
