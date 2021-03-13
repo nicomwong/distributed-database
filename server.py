@@ -83,7 +83,7 @@ class Server:
         # Setup my socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind( (socket.gethostname(), self.port) )
-        print("Started server at port", self.port)
+        self.printLog(f"Started server at port {self.port}")
 
         # Recover from stable storage (save file) if there is one
         saveFileName = f"server{self.ID}_blockchain"
@@ -116,7 +116,7 @@ class Server:
 
         if self.promiseCount > cls.numServers / 2:
             # Received majority
-            print("I am now the leader!")
+            self.printLog("I am now the leader!")
             # print(f"self.valsAllNone: {self.valsAllNone}")
             if self.valsAllNone:
                 pass
@@ -129,7 +129,7 @@ class Server:
             self.broadcastToServers("accept", self.ballotNum, self.myVal)
 
         else:
-            print("I lost the election")
+            self.printLog("I lost the election")
             pass
 
     def sendMessage(self, msgTokens, destinationAddr):
@@ -207,6 +207,9 @@ class Server:
                     self.ballotNum.num += 1
                     threading.Thread(target=self.electionPhase, daemon=True).start()
 
+    def printLog(self, string):
+        "Prints the input string with the server ID prefixed"
+        print(f"[SERVER {self.ID}] {string}")
 
 def handleUserInput():
     while True:
@@ -216,7 +219,7 @@ def handleUserInput():
 
         if len(cmdArgs) == 1:
             if cmd == "failProcess":
-                print("Crashing...")
+                self.printLog("Crashing...")
                 server.cleanExit()
                 sys.exit()
 
@@ -228,17 +231,17 @@ def handleUserInput():
                 dstPort = int(cmdArgs[1])
                 if dstPort not in server.brokenLinks:
                     server.brokenLinks.add(dstPort)
-                    print(f"Broke the link between {server.port} and {dstPort}")
+                    self.printLog(f"Broke the link to {dstPort}")
                 else:
-                    print(f"The link between {server.port} and {dstPort} is already broken")
+                    self.printLog(f"The link to {dstPort} is already broken")
 
             elif cmd == "fixLink":
                 dstPort = int(cmdArgs[1])
                 if dstPort in server.brokenLinks:
                     server.brokenLinks.remove(dstPort)
-                    print(f"Fixed the link between {server.port} and {dstPort}")
+                    self.printLog(f"Fixed the link to {dstPort}")
                 else:
-                    print(f"The link between {server.port} and {dstPort} is not broken")
+                    self.printLog(f"The link to {dstPort} is not broken")
             
             elif cmd == "broadcast":
                 msg = cmdArgs[1]
