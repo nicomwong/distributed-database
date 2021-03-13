@@ -101,6 +101,9 @@ class Server:
     def electionPhase(self):
         cls = self.__class__
 
+        # Increment ballotNum
+        self.ballotNum.num += 1
+
         # Reset election phase variables
         self.valsAllNone = True
         self.highestB = BallotNum(-1, -1, 0)
@@ -171,27 +174,27 @@ class Server:
             msg = data.decode()
             print(f"Received message \"{msg}\" from machine at {addr}")
 
-            msgTokens = msg.split('-')
+            msgArgs = msg.split('-')
 
             # Determine whether from client or server
             if addr in self.serverAddresses:
                 # From server
 
                 # Prepare
-                if msgTokens[0] == "prepare":
-                    bal = eval(msgTokens[1])
+                if msgArgs[0] == "prepare":
+                    bal = eval(msgArgs[1])
 
                     if bal >= self.ballotNum and bal.depth >= self.ballotNum.depth:
                         self.ballotNum = bal
                         self.sendMessage(("promise", self.ballotNum, self.acceptNum, self.acceptVal), addr)
 
                 # Promise
-                if msgTokens[0] == "promise":
+                if msgArgs[0] == "promise":
                     self.promiseCount += 1
 
-                    balNum = eval(msgTokens[1])
-                    b = eval(msgTokens[2])
-                    val = eval(msgTokens[3])
+                    balNum = eval(msgArgs[1])
+                    b = eval(msgArgs[2])
+                    val = eval(msgArgs[3])
 
                     # Check if all vals are None
                     self.valsAllNone = self.valsAllNone and (val is None)
@@ -203,8 +206,7 @@ class Server:
 
             else:
                 # From client
-                if msgTokens[0] == "leader":
-                    self.ballotNum.num += 1
+                if msgArgs[0] == "leader":
                     threading.Thread(target=self.electionPhase, daemon=True).start()
 
     def printLog(self, string):
