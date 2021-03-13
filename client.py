@@ -24,6 +24,7 @@ class Client:
 
         # Query/response variables
         self.leaderAddress = (socket.gethostbyname(socket.gethostname() ), cls.serverBasePort + 1)    # First leader hint is Server 1
+        self.leaderIsValid = False
         self.operationQueue = queue.Queue()
         self._response = None
 
@@ -47,8 +48,9 @@ class Client:
             while not self.operationQueue.qsize():
                 continue
 
-            # Nominate a new leader
-            self.nominateNextLeader()
+            # Nominate a new leader if there is no valid leader currently
+            if not(self.leaderIsValid):
+                self.nominateNextLeader()
 
             # Start sending operations to the leader
             while self.operationQueue.qsize():
@@ -65,6 +67,7 @@ class Client:
                 if timeoutThread.is_alive():   # Timed out
                     self.printLog("Timed out waiting for a query response")
                     self.leaderAddress = self.nextServer()
+                    self.leaderIsValid = False
                     terminate = True
                     break   # Assume the leader failed, so restart
 
@@ -105,6 +108,8 @@ class Client:
 
             if electionResult == "success":
                 self.printLog(f"Received election result: {electionResult}")
+                # self.leaderAddress is now correctly set
+                self.leaderIsValid = True
                 return
 
             elif electionResult == "failure":
