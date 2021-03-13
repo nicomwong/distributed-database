@@ -228,10 +228,13 @@ class Server:
                 op = eval(msgArgs[1])
                 requestID = eval(msgArgs[2])
                 request = (op, requestID)
+                self.printLog(f"Received request {requestID} from {addr}")
+
                 if self.isLeader:
                     self.requestQueue.put(request)
                 else:
                     # Forward request to leader hint
+                    self.printLog(f"Forwarding request {requestID} to server at {self.leaderHintAddress}")
                     self.sendMessage(msgArgs, self.leaderHintAddress)
 
     def printLog(self, string):
