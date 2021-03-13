@@ -191,7 +191,7 @@ class Server:
                 if msgType == "prepare":
                     bal = eval(msgArgs[1])
 
-                    if bal >= self.ballotNum and bal.depth >= self.ballotNum.depth:
+                    if bal >= self.ballotNum and bal.depth >= self.blockchain.depth:
                         self.ballotNum = bal
                         self.sendMessage(("promise", self.ballotNum, self.acceptNum, self.acceptVal), addr)
 
