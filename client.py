@@ -22,10 +22,13 @@ class Client:
         self.ID = clientID
         self.port = cls.basePort + self.ID
 
-        # Query/response variables
+        # Query variables
         self.leaderAddress = (socket.gethostbyname(socket.gethostname() ), cls.serverBasePort + 1)    # First leader hint is Server 1
         self.leaderIsValid = False
         self.operationQueue = queue.Queue()
+        self.requestID = (0, self.ID)
+
+        # Response variables
         self._response = None
 
     def start(self):
@@ -56,7 +59,7 @@ class Client:
             while self.operationQueue.qsize():
                 self._response = None    # Clear the response holder
 
-                self.sendToLeader(self.operationQueue.queue[0] )  # Send operation to leader   [TODO] Send req ID with query
+                self.sendToLeader("request", self.operationQueue.queue[0], self.requestID)  # Send operation to leader and req ID
 
                 terminate = False   # Thread termination flag
                 timeoutThread = threading.Thread(target=self.waitForResponse, args=(lambda:terminate,), daemon=True)
@@ -73,6 +76,8 @@ class Client:
 
                 # Received query response from the leader
                 queryResponse = self._response
+
+                self.requestID = (self.requestID[0] + 1, self.requestID[1])    # Increment request number
 
                 self.operationQueue.get()   # Pop it from the queue
 
