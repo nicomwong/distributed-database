@@ -34,7 +34,7 @@ class BallotNum:
         return not(self < other) and not(self == other)
 
     def __ge__(self, other):
-        return self == other or self > other
+        return not(self < other)
 
 
 class Server:
