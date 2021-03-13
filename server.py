@@ -57,19 +57,22 @@ class Server:
         # Data structures
         self.blockchain = Blockchain()
         self.kvstore = KVStore()
-        self.blockQueue = queue.Queue() # Queue of blocks to propose when leader
+        self.requestQueue = queue.Queue() # Queue of blocks to propose when leader
 
         # Main Paxos variables
         self.ballotNum = BallotNum(0, self.ID, 0)
         self.acceptNum = BallotNum(0, self.ID, 0)
         self.acceptVal = None
         self.myVal = None
+        self.isLeader = False
+        self.leaderHintAddress = (socket.gethostbyname(socket.gethostname()), cls.basePort + 1) # Default hint is Server 1
 
         # Election phase variables
         self.valsAllNone = True
         self.highestB = BallotNum(-1, -1, -1)
         self.valWithHighestB = None
         self.promiseCount = -1
+        self.nominatorAddress = None    # Address of client who nominated me
 
         # Collect addresses of other servers
         self.serverAddresses = []
@@ -120,11 +123,13 @@ class Server:
         if self.promiseCount > cls.numServers / 2:
             # Received majority
             self.printLog("I am now the leader!")
+            self.isLeader = True
+            self.sendMessage( ("success",), self.nominatorAddress)  # Respond successful nomination to the nominator
             # print(f"self.valsAllNone: {self.valsAllNone}")
             if self.valsAllNone:
                 pass
                 # self.myVal will be set in self.processOperationQueue
-
+                
             else:
                 self.myVal = self.valWithHighestB
 
@@ -133,6 +138,7 @@ class Server:
 
         else:
             self.printLog("I lost the election")
+            self.sendMessage( ("failure",), self.nominatorAddress)  # Respond failure nomination to the nominator
             pass
 
     def sendMessage(self, msgTokens, destinationAddr):
@@ -175,13 +181,14 @@ class Server:
             print(f"Received message \"{msg}\" from machine at {addr}")
 
             msgArgs = msg.split('-')
+            msgType = msgArgs[0]
 
             # Determine whether from client or server
             if addr in self.serverAddresses:
                 # From server
 
                 # Prepare
-                if msgArgs[0] == "prepare":
+                if msgType == "prepare":
                     bal = eval(msgArgs[1])
 
                     if bal >= self.ballotNum and bal.depth >= self.ballotNum.depth:
@@ -189,7 +196,7 @@ class Server:
                         self.sendMessage(("promise", self.ballotNum, self.acceptNum, self.acceptVal), addr)
 
                 # Promise
-                if msgArgs[0] == "promise":
+                elif msgType == "promise":
                     self.promiseCount += 1
 
                     balNum = eval(msgArgs[1])
@@ -204,10 +211,28 @@ class Server:
                         self.highestB = b
                         self.valWithHighestB = val
 
+                # [TODO] Receive "I am leader" from a server
+                # Set self.leaderHintAddress
+                # Set self.isLeader to False
+
             else:
                 # From client
-                if msgArgs[0] == "leader":
+                if msgType == "leader":
+                    self.nominatorAddress = addr    # Track the nominator for responding
                     threading.Thread(target=self.electionPhase, daemon=True).start()
+
+            # From client or server
+
+            # Receiving a request
+            if msgType == "request":    # request-Operation()-reqID
+                op = eval(msgArgs[1])
+                requestID = eval(msgArgs[2])
+                request = (op, requestID)
+                if self.isLeader:
+                    self.requestQueue.put(request)
+                else:
+                    # Forward request to leader hint
+                    self.sendMessage(msgArgs, self.leaderHintAddress)
 
     def printLog(self, string):
         "Prints the input string with the server ID prefixed"
@@ -262,8 +287,8 @@ def handleUserInput():
                 elif varName == "kvstore" or varName == "kv":
                     pprint.pprint(server.kvstore._dict)
 
-                elif varName == "blockQueue" or varName == "bq":
-                    pprint.pprint(server.blockQueue.queue)
+                elif varName == "requestQueue" or varName == "rq":
+                    pprint.pprint(server.requestQueue.queue)
 
                 else:
                     print("Does not exist")

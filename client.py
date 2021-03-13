@@ -12,7 +12,7 @@ class Client:
     serverBasePort = 8000
     numServers = 3
 
-    nominationTimeout = 4   # Timeout for receiving a nomination result response
+    nominationTimeout = 10   # Timeout for receiving a nomination result response
     queryTimeout = 5     # Timeout for receiving a response after sending a query
     
     def __init__(self, clientID):
@@ -26,7 +26,7 @@ class Client:
         self.leaderAddress = (socket.gethostbyname(socket.gethostname() ), cls.serverBasePort + 1)    # First leader hint is Server 1
         self.leaderIsValid = False
         self.operationQueue = queue.Queue()
-        self.requestID = (0, self.ID)
+        self.requestID = (0, self.port)
 
         # Response variables
         self._response = None

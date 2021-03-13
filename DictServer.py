@@ -25,8 +25,10 @@ class Block:
                  nonce: str,
                  hashPointer: int):
         self.operation = operation
+        # [TODO] Calculate nonce in constructor
         self.nonce = nonce
         self.hashPointer = hashPointer
+        # [TODO] Add requestID field
 
     def __repr__(self):
         return f"Block({repr(self.operation)}, {repr(self.nonce)}, {repr(self.hashPointer)})"
