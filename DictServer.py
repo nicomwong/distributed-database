@@ -108,19 +108,19 @@ class Blockchain:
             pickle.dump(self, f)
 
 
-putOp = Operation.Put(1, 2)
-getOp = Operation.Get(1)
+# putOp = Operation.Put(1, 2)
+# getOp = Operation.Get(1)
 
 # print(putOp)
 # print(getOp)
 
 # blocks = []
 
-b1 = Block(putOp, None)
-print(b1)
+# b1 = Block(putOp, None)
+# print(b1)
 
-b2 = Block(getOp, b1)
-print(b2)
+# b2 = Block(getOp, b1)
+# print(b2)
 
 # blocks.append(Block(getOp, 123, 654))
 # print(blocks[1])
