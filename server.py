@@ -283,7 +283,6 @@ serverID = int(sys.argv[1])
 
 server = Server(serverID)   # Start the server
 server.start()
-server.blockchain.append(Block(Operation.Put('testKey2', 'testValue2'), 'nonce', 1))
-server.blockchain.write(f"server{server.ID}_blockchain")
+
 # Handle stdin
 handleUserInput()
