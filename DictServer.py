@@ -26,54 +26,60 @@ class KVStore:
 
 
 class Block:
-    def __init__(self,  operation: Operation,
-                 prevBlock):
-        # Local variables used to calculate nonce
-        blockHash = 3
-        hashFunc = None
-        characters = string.ascii_letters
 
-        # Local variables used to calculate hashPointer
-        firstBlock = random.randbytes(64)
+    @classmethod
+    def _successfulNonceHash(cls, _hash):
+        "Returns True iff _hash is an integer that ends in 0, 1, or 2"
+        if _hash == None:
+            return False
+        else:
+            return _hash % 10 <= 2
 
-        # Class variables
-        self.operation = operation
-        self.operationStr = repr(operation).encode()
-        self.nonce = None
-        self.hashPointer = None
-
-        # Calculate nonce
-        while ((blockHash % 10) > 2):
+    @classmethod
+    def _calculateNonce(cls, operation_n):
+        "Returns Nonce_n such that SHA256(Operation_n|Nonce_n) satisfies cls._successfulNonceHash()"
+        _hash = None
+        while not( cls._successfulNonceHash(_hash) ):
             # Generating random string of size 10 for nonce
-            self.nonce = ''.join(random.choice(characters)
+            nonce = ''.join(random.choice(string.ascii_letters)
                                  for i in range(10))
             hashFunc = hashlib.sha256()
-            hashFunc.update(self.operationStr)
-            hashFunc.update(self.nonce.encode())
-            blockHash = int(hashFunc.hexdigest(), 16)
+            hashFunc.update( repr(operation_n).encode() + nonce.encode() )
+            _hash = int(hashFunc.hexdigest(), 16)   # Convert from hex to decimal
 
-        # Calculate hashPointer
-        if prevBlock == None:
-            hashFunc = hashlib.sha256()
-            hashFunc.update(firstBlock)
-            self.hashPointer = hashFunc.hexdigest()
+        # Found a nonce such that the hash that satisfies the critera
+        print(f"Calculated nonce {nonce} such that h = {_hash}")
+        return nonce
 
+    @classmethod
+    def _calculateHashPointer(cls, prevBlock):
+        "Returns HashPointer_n+1 = SHA256(Operation_n|Nonce_n|HashPointer_n) as a hexadecimal string"
+        if prevBlock is None:
+            return None
         else:
             hashFunc = hashlib.sha256()
-            hashFunc.update(prevBlock.operationStr)
-            hashFunc.update(prevBlock.nonce.encode())
-            hashFunc.update(prevBlock.hashPointer.encode())
-            self.hashPointer = hashFunc.hexdigest()
+            hashFunc.update( repr(prevBlock.operation).encode() + prevBlock.nonce.encode() )
+            if prevBlock.hashPointer:
+                hashFunc.update( prevBlock.hashPointer.encode() )
+            # print(f"Calculated hash pointer {hashFunc.hexdigest()}")
+            return hashFunc.hexdigest()
 
+    def __init__(self, operation, prevBlock):
+        cls = self.__class__
+
+        self.operation = operation
+        self.hashPointer = cls._calculateHashPointer(prevBlock)
+        self.nonce = cls._calculateNonce(operation)
         # [TODO] Add requestID field
 
     def __repr__(self):
-        return f"Block({repr(self.operation)}, {repr(self.nonce)}, {repr(self.hashPointer)})"
+        return f"Block({repr(self.operation)}, {repr(self.nonce)}, {repr(self.hashPointer)})"  
 
 
 class Blockchain:
     def __init__(self):
         self._list = list()
+        self.depth = 0  # Next index that is either empty or has a tentative block
 
     def __repr__(self):
         return repr(self._list)
@@ -121,6 +127,9 @@ class Blockchain:
 
 # b2 = Block(getOp, b1)
 # print(b2)
+
+# b3 = Block(putOp, b2)
+# print(b3)
 
 # blocks.append(Block(getOp, 123, 654))
 # print(blocks[1])
