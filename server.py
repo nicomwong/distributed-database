@@ -41,6 +41,9 @@ class BallotNum:
 
 class Server:
 
+    # Testing vars
+    debugMode = False
+
     # Class vars
     basePort = 8000
     numServers = 3
@@ -125,6 +128,7 @@ class Server:
         self.promiseCount = 1  # Initially 1 since it accepts itself
 
         # Broadcast prepare
+        self.printLog("Broadcasting prepare")
         self.broadcastToServers("prepare", self.ballotNum)
 
         # Start a thread for timeout
@@ -141,7 +145,7 @@ class Server:
             return
 
         # Received majority
-        self.printLog("I am now the leader!")
+        self.printLog("Received a majority of promises. I am now the leader!")
         self.isLeader = True
         self.sendMessage( ("success",), self.nominatorAddress)  # Respond successful nomination to the nominator
 
@@ -200,8 +204,8 @@ class Server:
                            for token in msgTokens]  # Convert tokens to strings
         msg = '-'.join(msgTokenStrings)  # Separate tokens by delimiter
 
-        print(
-            f"Sent message \"{msg}\" to machine at port {destinationAddr[1]}")
+        if cls.debugMode:
+            print(f"Sent message \"{msg}\" to machine at port {destinationAddr[1]}")
 
         if destinationAddr[1] in self.brokenLinks:
             # For simulating broken links, the message is sent but never arrives
@@ -231,7 +235,8 @@ class Server:
                 continue
 
             msg = data.decode()
-            print(f"Received message \"{msg}\" from machine at {addr}")
+            if cls.debugMode:
+                print(f"Received message \"{msg}\" from machine at {addr}")
 
             msgArgs = msg.split('-')
             msgType = msgArgs[0]
@@ -246,8 +251,8 @@ class Server:
 
                     if bal >= self.ballotNum and bal.depth >= self.ballotNum.depth:
                         self.ballotNum = bal
-                        self.sendMessage(
-                            ("promise", self.ballotNum, self.acceptNum, self.acceptVal), addr)
+                        self.sendMessage( ("promise", self.ballotNum, self.acceptNum, self.acceptVal), addr)
+                        self.printLog(f"Responding promise to {addr[1]}")
 
                 # Promise
                 elif msgType == "promise":
@@ -267,7 +272,8 @@ class Server:
 
                 # Receive "I am leader" from a server
                 elif msg == "I am leader":
-                    self.leaderHintAddress = addr[1]
+                    self.printLog(f"Received \"I am leader\" from {addr[1]}. Setting my leader hint and relinquishing my leader status")
+                    self.leaderHintAddress = addr
                     self.isLeader = False
 
                 elif msgType == "accept":
@@ -279,6 +285,7 @@ class Server:
                         self.acceptVal = val
                         self.blockchain.accept(val)
                         self.broadcastToServers("accepted", b, val) # For N^2 "accepted" message optimization of Decide phase
+                        self.printLog(f"Received accept from {addr[1]}. Broadcasting accepted")
 
                 elif msgType == "accepted": # accepted-BallotNum(...)-Block(...)
                     b = eval(msgArgs[1])
@@ -288,7 +295,7 @@ class Server:
 
                     if self.acceptedCount[val] > cls.numServers / 2:
                         # Received majority "accepted"
-                        print(f"Received majority accepted. Deciding on value with request ID {val.requestID}")
+                        self.printLog(f"Received majority accepted. Deciding on value for request {val.requestID}")
 
                         # Decide on val
                         self.blockchain.decide(val)
@@ -296,8 +303,10 @@ class Server:
 
                         # Leader sends the query answer to the requester
                         if self.isLeader:
+                            answer = self._getAnswer(val.operation)
                             requesterAddr = (socket.gethostbyname(socket.gethostname() ), val.requestID[1])
-                            self.sendMessage( (self._getAnswer(val.operation),), requesterAddr)
+                            self.sendMessage( (answer,), requesterAddr)
+                            self.printLog(f"Sent the answer {answer} to the requester at {requesterAddr[1]}")
                         
                         # Reset Accept-phase variables
                         self.acceptNum = BallotNum(0, self.ID, 0)
@@ -307,6 +316,7 @@ class Server:
             else:
                 # From client
                 if msgType == "leader":
+                    self.printLog(f"Nominated to be leader by client at {addr[1]}")
                     self.nominatorAddress = addr    # Track the nominator for responding
                     threading.Thread(target=self.electionPhase,
                                      daemon=True).start()
@@ -318,15 +328,13 @@ class Server:
                 op = eval(msgArgs[1])
                 requestID = eval(msgArgs[2])
                 request = (op, requestID)
-                self.printLog(f"Received request {requestID} from {addr}")
+                self.printLog(f"Received request {requestID} from {addr[1]}")
 
                 if self.isLeader:
                     self.requestQueue.put(request)
-                    print("Added request to requestQueue")
                 else:
                     # Forward request to leader hint
-                    self.printLog(
-                        f"Forwarding request {requestID} to server at {self.leaderHintAddress}")
+                    self.printLog(f"Forwarding request {requestID} to server at {self.leaderHintAddress[1]}")
                     self.sendMessage(msgArgs, self.leaderHintAddress)
 
     def _getAnswer(self, operation):
