@@ -62,7 +62,7 @@ class Block:
             hashFunc.update(repr(prevBlock.operation).encode() +
                             prevBlock.nonce.encode())
             if prevBlock.hashPointer:
-                hashFunc.update(prevBlock.hashPointer.encode())
+                hashFunc.update( prevBlock.hashPointer.to_bytes(32, byteorder='big') )
             # print(f"Calculated hash pointer {hashFunc.hexdigest()}")
             return hashFunc.hexdigest()
 
