@@ -305,7 +305,7 @@ class Server:
 
                     self.acceptedCount[val] += 1
 
-                    if self.acceptedCount[val] > cls.numServers / 2:
+                    if self.acceptedCount[val] == cls.numServers // 2 + 1:
                         # Received majority "accepted"
                         self.printLog(f"Received majority accepted. Deciding on value for request {val.requestID}")
 
