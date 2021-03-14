@@ -166,18 +166,29 @@ class Server:
                     else:
                         prevBlock = self.blockchain._list[-1]
 
-                    self.myVal = Block.Create(
-                        currRequest[0], currRequest[1], prevBlock)
+                    self.myVal = Block.Create(currRequest[0], currRequest[1], prevBlock)
                     self.replicationPhase()
             else:
                 # Flushes requestQueue, clients will handling resending any unanswered requests
                 self.requestQueue.queue.clear()
 
     def replicationPhase(self):
+        # Self-acceptance of the block
         self.blockchain.accept(self.myVal)
         self.acceptVal = self.myVal
         self.acceptNum = self.ballotNum
+
+        # Broadcast accept to servers
         self.broadcastToServers("accept", self.ballotNum, self.myVal)
+
+        # Wait for a majority of accepted messages
+        self._waitForMajorityAccepted(self.myVal)
+
+    def _waitForMajorityAccepted(self, val):
+        "Blocks until a majority of accepted are received for val"
+        cls = self.__class__
+        while self.acceptedCount[val] <= cls.numServers / 2:
+            continue
 
     def sendMessage(self, msgTokens, destinationAddr):
         """
