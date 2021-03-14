@@ -137,7 +137,10 @@ class Server:
                 # self.myVal will be set in self.processOperationQueue
 
             else:
-                self.myVal = self.valWithHighestB
+                inheritedRequest = (
+                    self.valWithHighestB.operation, self.valWithHighestB.requestID)
+
+                self.requestQueue.put(inheritedRequest)
 
             # Broadcast accept
             # self.broadcastToServers("accept", self.ballotNum, self.myVal)
@@ -222,9 +225,21 @@ class Server:
                         self.highestB = b
                         self.valWithHighestB = val
 
-                # [TODO] Receive "I am leader" from a server
-                # Set self.leaderHintAddress
-                # Set self.isLeader to False
+                # Receive "I am leader" from a server
+                elif msg == "I am leader":
+                    self.leaderHintAddress = addr[1]
+                    self.isLeader = False
+
+                elif msgType == "accept":
+                    b = eval(msgArgs[1])
+                    val = eval(msgArgs[2])
+
+                    if b >= self.ballotNum and b.depth >= self.ballotNum.depth:
+                        self.acceptNum = b
+                        self.acceptVal = val
+                        self.blockchain.accept(val)
+                        print(f"curr acceptVal: {val} acceptNum: {b}")
+                        self.broadcastToServers("accepted", b, val)
 
             else:
                 # From client
@@ -256,31 +271,29 @@ class Server:
         print(f"[SERVER {self.ID}] {string}")
 
     def processBlockQueue(self):
-        print("In processBlockQueue()")
         while True:
-            if self.isLeader and not self.requestQueue.empty:
-                if self.myVal
-                self.replicationPhase()
+            if self.isLeader:
+                if not self.requestQueue.empty():
+                    currRequest = self.requestQueue.get()
+                    if not self.blockchain._list:
+                        prevBlock = None
+                    else:
+                        prevBlock = self.blockchain._list[-1]
+
+                    self.myVal = Block.Create(
+                        currRequest[0], currRequest[1], prevBlock)
+                    self.replicationPhase()
+            else:
+                # Flushes requestQueue, client will time out and resend messsage
+                self.requestQueue.queue.clear()
 
     def replicationPhase(self):
         # [TODO]: Incoporate requestID into Block class and modify this function
-
-        if self.myVal != None:
-            self.broadcastToServers("accept", self.ballotNum, self.myVal)
-        else:
-            currRequest = self.requestQueue.get()
-
-            # Create new block to add to Blockchain
-            if not self.blockchain._list:
-                prevBlock = None
-            else:
-                prevBlock = self.blockchain._list[len(
-                    self.blockchain._list) - 1]
-
-            self.myVal = Block(currRequest[0], prevBlock)
-            self.blockchain.append(self.myVal)
-
-            self.broadcastToServers("accept", self.ballotNum, self.myVal)
+        print("Inside replication phase")
+        self.blockchain.accept(self.myVal)
+        self.acceptVal = self.myVal
+        self.acceptNum = self.ballotNum
+        self.broadcastToServers("accept", self.ballotNum, self.myVal)
 
 
 def handleUserInput():

@@ -39,13 +39,14 @@ class Block:
     def _calculateNonce(cls, operation_n):
         "Returns Nonce_n such that SHA256(Operation_n|Nonce_n) satisfies cls._successfulNonceHash()"
         _hash = None
-        while not( cls._successfulNonceHash(_hash) ):
+        while not(cls._successfulNonceHash(_hash)):
             # Generating random string of size 10 for nonce
             nonce = ''.join(random.choice(string.ascii_letters)
-                                 for i in range(10))
+                            for i in range(10))
             hashFunc = hashlib.sha256()
-            hashFunc.update( repr(operation_n).encode() + nonce.encode() )
-            _hash = int(hashFunc.hexdigest(), 16)   # Convert from hex to decimal
+            hashFunc.update(repr(operation_n).encode() + nonce.encode())
+            # Convert from hex to decimal
+            _hash = int(hashFunc.hexdigest(), 16)
 
         # Found a nonce such that the hash that satisfies the critera
         print(f"Calculated nonce {nonce} such that h = {_hash}")
@@ -58,22 +59,27 @@ class Block:
             return None
         else:
             hashFunc = hashlib.sha256()
-            hashFunc.update( repr(prevBlock.operation).encode() + prevBlock.nonce.encode() )
+            hashFunc.update(repr(prevBlock.operation).encode() +
+                            prevBlock.nonce.encode())
             if prevBlock.hashPointer:
-                hashFunc.update( prevBlock.hashPointer.encode() )
+                hashFunc.update(prevBlock.hashPointer.encode())
             # print(f"Calculated hash pointer {hashFunc.hexdigest()}")
             return hashFunc.hexdigest()
 
-    def __init__(self, operation, prevBlock):
-        cls = self.__class__
-
+    def __init__(self, operation, nonce, hashPointer, requestID):
         self.operation = operation
-        self.hashPointer = cls._calculateHashPointer(prevBlock)
-        self.nonce = cls._calculateNonce(operation)
-        # [TODO] Add requestID field
+        self.hashPointer = hashPointer
+        self.nonce = nonce
+        self.requestID = requestID
+
+    @classmethod
+    def Create(cls, operation, requestID, prevBlock):
+        nonce = cls._calculateNonce(operation)
+        hashPointer = cls._calculateHashPointer(prevBlock)
+        return cls(operation, nonce, hashPointer, requestID)
 
     def __repr__(self):
-        return f"Block({repr(self.operation)}, {repr(self.nonce)}, {repr(self.hashPointer)})"  
+        return f"Block({repr(self.operation)}, {repr(self.nonce)}, {repr(self.hashPointer)}, {repr(self.requestID)})"
 
 
 class Blockchain:
@@ -86,6 +92,9 @@ class Blockchain:
 
     def append(self, block: Block):
         self._list.append(block)
+
+    def accept(self, block: Block):
+        pass
 
     def generateKVStore(self):
         "Returns the KVStore generated from performing the blockchain's operations in order"
@@ -122,10 +131,10 @@ class Blockchain:
 
 # blocks = []
 
-# b1 = Block(putOp, None)
+# b1 = Block.Create(putOp, (0, 0), None)
 # print(b1)
 
-# b2 = Block(getOp, b1)
+# b2 = Block.Create(getOp, (0, 0), b1)
 # print(b2)
 
 # b3 = Block(putOp, b2)
