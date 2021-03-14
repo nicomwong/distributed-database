@@ -284,12 +284,10 @@ class Server:
                         currRequest[0], currRequest[1], prevBlock)
                     self.replicationPhase()
             else:
-                # Flushes requestQueue, client will time out and resend messsage
+                # Flushes requestQueue, clients will handling resending any unanswered requests
                 self.requestQueue.queue.clear()
 
     def replicationPhase(self):
-        # [TODO]: Incoporate requestID into Block class and modify this function
-        print("Inside replication phase")
         self.blockchain.accept(self.myVal)
         self.acceptVal = self.myVal
         self.acceptNum = self.ballotNum
