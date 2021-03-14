@@ -83,14 +83,13 @@ class Server:
         self.acceptNum = BallotNum(0, self.ID, 0)
         self.acceptVal = None
         self.myVal = None
-        self.acceptedCount = defaultdict(lambda: 1) # Self-accepted value by default
+        self.acceptedCount = defaultdict(lambda: 0)
 
-        # Collect addresses of other servers
+        # Get server addresses
         self.serverAddresses = []
-        for i in range(cls.numServers - 1):
-            serverPort = cls.basePort + 1 + ((self.ID + i) % cls.numServers)
-            serverAddr = (socket.gethostbyname(
-                socket.gethostname()), serverPort)
+        for i in range(cls.numServers):
+            serverPort = cls.basePort + 1 + ( (self.ID + i) % cls.numServers)
+            serverAddr = (socket.gethostbyname(socket.gethostname() ), serverPort)
             self.serverAddresses.append(serverAddr)
             # print("Added outgoing server address", serverAddr)
 
@@ -126,7 +125,7 @@ class Server:
         self.valsAllNone = True
         self.highestB = BallotNum(-1, -1, 0)
         self.valWithHighestB = None
-        self.promiseCount = 1  # Initially 1 since it accepts itself
+        self.promiseCount = 0
 
         # Broadcast prepare
         self.printLog("Broadcasting prepare")
@@ -149,6 +148,7 @@ class Server:
         self.printLog("Received a majority of promises. I am now the leader!")
         self.isLeader = True
         self.sendMessage( ("success",), self.nominatorAddress)  # Respond successful nomination to the nominator
+        self.broadcastToServers("I am leader", me=False)  # Broadcast election result to the other servers
 
         if not self.valsAllNone:
             # Inherited a request
@@ -227,8 +227,12 @@ class Server:
         time.sleep(self.propagationDelay)
         self.sock.sendto(msg.encode(), destinationAddr)
 
-    def broadcastToServers(self, *msgTokens):
+    def broadcastToServers(self, *msgTokens, me=True):
+        "Broadcasts msgTokens to every server, including myself iff me=True"
+        
         for addr in self.serverAddresses:
+            if addr == (self.ip, self.port) and me == False:
+                continue
             self.sendMessage(msgTokens, addr)
 
     def handleIncomingMessages(self):
