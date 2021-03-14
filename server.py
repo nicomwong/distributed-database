@@ -1,5 +1,7 @@
 
 import queue
+from collections import defaultdict
+
 import socket
 import threading
 import sys
@@ -42,6 +44,7 @@ class Server:
     # Class vars
     basePort = 8000
     numServers = 3
+    electionTimeout = 6 # Timeout to wait for majority promises after broadcasting prepare
 
     def __init__(self, serverID):
         cls = self.__class__
@@ -61,9 +64,6 @@ class Server:
 
         # Main Paxos variables
         self.ballotNum = BallotNum(0, self.ID, 0)
-        self.acceptNum = BallotNum(0, self.ID, 0)
-        self.acceptVal = None
-        self.myVal = None
         self.isLeader = False
         self.leaderHintAddress = (socket.gethostbyname(
             socket.gethostname()), cls.basePort + 1)  # Default hint is Server 1
@@ -74,6 +74,12 @@ class Server:
         self.valWithHighestB = None
         self.promiseCount = -1
         self.nominatorAddress = None    # Address of client who nominated me
+
+        # Replication phase variables
+        self.acceptNum = BallotNum(0, self.ID, 0)
+        self.acceptVal = None
+        self.myVal = None
+        self.acceptedCount = defaultdict(lambda: 1) # Self-accepted value by default
 
         # Collect addresses of other servers
         self.serverAddresses = []
@@ -121,35 +127,57 @@ class Server:
         # Broadcast prepare
         self.broadcastToServers("prepare", self.ballotNum)
 
-        # Wait timeout
-        time.sleep(5)
-        print(f"Checking promise count. promiseCount = {self.promiseCount}")
+        # Start a thread for timeout
+        terminate = False    # Thread termination flag
+        timeoutThread = threading.Thread(target=self._waitForMajorityPromises, args=(lambda:terminate,), daemon=True)
+        timeoutThread.start()
+        timeoutThread.join(cls.electionTimeout)
 
-        if self.promiseCount > cls.numServers / 2:
-            # Received majority
-            self.printLog("I am now the leader!")
-            self.isLeader = True
-            # Respond successful nomination to the nominator
-            self.sendMessage(("success",), self.nominatorAddress)
-            # print(f"self.valsAllNone: {self.valsAllNone}")
-            if self.valsAllNone:
-                pass
-                # self.myVal will be set in self.processOperationQueue
+        # Check if timed out
+        if timeoutThread.is_alive():   # Timed out
+            self.printLog("Timed out waiting for a majority of promises. I lost the election")
+            self.sendMessage( ("failure",), self.nominatorAddress)   # Respond failure nomination to the nominator
+            terminate = True
+            return
 
+        # Received majority
+        self.printLog("I am now the leader!")
+        self.isLeader = True
+        self.sendMessage( ("success",), self.nominatorAddress)  # Respond successful nomination to the nominator
+
+        if not self.valsAllNone:
+            # Inherited a request
+            inheritedRequest = (self.valWithHighestB.operation, self.valWithHighestB.requestID)
+            self.requestQueue.put(inheritedRequest)
+
+    def _waitForMajorityPromises(self, terminate):
+        "Blocks until a majority of promises are received"
+        cls = self.__class__
+        while not(terminate() ) and self.promiseCount <= cls.numServers / 2:
+            continue
+
+    def processBlockQueue(self):
+        while True:
+            if self.isLeader:
+                if not self.requestQueue.empty():
+                    currRequest = self.requestQueue.get()
+                    if not self.blockchain._list:
+                        prevBlock = None
+                    else:
+                        prevBlock = self.blockchain._list[-1]
+
+                    self.myVal = Block.Create(
+                        currRequest[0], currRequest[1], prevBlock)
+                    self.replicationPhase()
             else:
-                inheritedRequest = (
-                    self.valWithHighestB.operation, self.valWithHighestB.requestID)
+                # Flushes requestQueue, clients will handling resending any unanswered requests
+                self.requestQueue.queue.clear()
 
-                self.requestQueue.put(inheritedRequest)
-
-            # Broadcast accept
-            # self.broadcastToServers("accept", self.ballotNum, self.myVal)
-
-        else:
-            self.printLog("I lost the election")
-            # Respond failure nomination to the nominator
-            self.sendMessage(("failure",), self.nominatorAddress)
-            pass
+    def replicationPhase(self):
+        self.blockchain.accept(self.myVal)
+        self.acceptVal = self.myVal
+        self.acceptNum = self.ballotNum
+        self.broadcastToServers("accept", self.ballotNum, self.myVal)
 
     def sendMessage(self, msgTokens, destinationAddr):
         """
@@ -181,6 +209,7 @@ class Server:
             self.sendMessage(msgTokens, addr)
 
     def handleIncomingMessages(self):
+        cls = self.__class__
 
         while True:
             # Blocks until a message arrives
@@ -238,8 +267,31 @@ class Server:
                         self.acceptNum = b
                         self.acceptVal = val
                         self.blockchain.accept(val)
-                        print(f"curr acceptVal: {val} acceptNum: {b}")
-                        self.broadcastToServers("accepted", b, val)
+                        self.broadcastToServers("accepted", b, val) # For N^2 "accepted" message optimization of Decide phase
+
+                elif msgType == "accepted": # accepted-BallotNum(...)-Block(...)
+                    b = eval(msgArgs[1])
+                    val = eval(msgArgs[2])
+
+                    self.acceptedCount[val] += 1
+
+                    if self.acceptedCount[val] > cls.numServers / 2:
+                        # Received majority "accepted"
+                        print(f"Received majority accepted. Deciding on value with request ID {val.requestID}")
+
+                        # Decide on val
+                        self.blockchain.decide(val)
+                        self.kvstore.processBlock(val)
+
+                        # Leader sends the query answer to the requester
+                        if self.isLeader:
+                            requesterAddr = (socket.gethostbyname(socket.gethostname() ), val.requestID[1])
+                            self.sendMessage( (self._getAnswer(val.operation),), requesterAddr)
+                        
+                        # Reset Accept-phase variables
+                        self.acceptNum = BallotNum(0, self.ID, 0)
+                        self.acceptVal = None
+                        del(self.acceptedCount[val])
 
             else:
                 # From client
@@ -266,32 +318,23 @@ class Server:
                         f"Forwarding request {requestID} to server at {self.leaderHintAddress}")
                     self.sendMessage(msgArgs, self.leaderHintAddress)
 
+    def _getAnswer(self, operation):
+        "Returns the answer of performing operation on self.kvstore"
+        if operation.type == "get":
+            if operation.key in self.kvstore._dict:
+                return self.kvstore.get(operation.key)
+            else:
+                return "KEY_DOES_NOT_EXIST"
+
+        elif operation.type == "put":
+            return "success"
+
+        else:
+            return None
+
     def printLog(self, string):
         "Prints the input string with the server ID prefixed"
         print(f"[SERVER {self.ID}] {string}")
-
-    def processBlockQueue(self):
-        while True:
-            if self.isLeader:
-                if not self.requestQueue.empty():
-                    currRequest = self.requestQueue.get()
-                    if not self.blockchain._list:
-                        prevBlock = None
-                    else:
-                        prevBlock = self.blockchain._list[-1]
-
-                    self.myVal = Block.Create(
-                        currRequest[0], currRequest[1], prevBlock)
-                    self.replicationPhase()
-            else:
-                # Flushes requestQueue, clients will handling resending any unanswered requests
-                self.requestQueue.queue.clear()
-
-    def replicationPhase(self):
-        self.blockchain.accept(self.myVal)
-        self.acceptVal = self.myVal
-        self.acceptNum = self.ballotNum
-        self.broadcastToServers("accept", self.ballotNum, self.myVal)
 
 
 def handleUserInput():

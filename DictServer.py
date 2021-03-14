@@ -24,6 +24,11 @@ class KVStore:
     def put(self, key, value):
         self._dict[key] = value
 
+    def processBlock(self, block):
+        op = block.operation
+        if op.type == "put":
+            self.put(op.key, op.value)
+
 
 class Block:
 
@@ -94,6 +99,11 @@ class Blockchain:
         self._list.append(block)
 
     def accept(self, block: Block):
+        # [TODO]
+        pass
+
+    def decide(self, block: Block):
+        # [TODO]
         pass
 
     def generateKVStore(self):
