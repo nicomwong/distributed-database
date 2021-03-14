@@ -12,8 +12,8 @@ class Client:
     serverBasePort = 8000
     numServers = 3
 
-    nominationTimeout = 10   # Timeout for receiving a nomination result response
-    queryTimeout = 5     # Timeout for receiving a response after sending a query
+    nominationTimeout = 10  # Timeout for receiving a nomination result response
+    queryTimeout = 10       # Timeout for receiving a response after sending a query
     
     def __init__(self, clientID):
         cls = self.__class__
