@@ -77,6 +77,15 @@ class Block:
         self.nonce = nonce
         self.requestID = requestID
 
+    def __hash__(self):
+        return hash( (self.operation, self.hashPointer, self.nonce, self.requestID) )
+
+    def __eq__(self, other):
+        return  self.operation == other.operation and\
+                self.hashPointer == other.hashPointer and\
+                self.nonce == other.nonce and\
+                self.requestID == other.requestID
+
     @classmethod
     def Create(cls, operation, requestID, prevBlock):
         nonce = cls._calculateNonce(operation)
