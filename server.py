@@ -57,7 +57,7 @@ class Server:
         # Data structures
         self.blockchain = Blockchain()
         self.kvstore = KVStore()
-        self.requestQueue = queue.Queue() # Queue of blocks to propose when leader
+        self.requestQueue = queue.Queue()  # Queue of blocks to propose when leader
 
         # Main Paxos variables
         self.ballotNum = BallotNum(0, self.ID, 0)
@@ -65,7 +65,8 @@ class Server:
         self.acceptVal = None
         self.myVal = None
         self.isLeader = False
-        self.leaderHintAddress = (socket.gethostbyname(socket.gethostname()), cls.basePort + 1) # Default hint is Server 1
+        self.leaderHintAddress = (socket.gethostbyname(
+            socket.gethostname()), cls.basePort + 1)  # Default hint is Server 1
 
         # Election phase variables
         self.valsAllNone = True
@@ -77,15 +78,16 @@ class Server:
         # Collect addresses of other servers
         self.serverAddresses = []
         for i in range(cls.numServers - 1):
-            serverPort = cls.basePort + 1 + ( (self.ID + i) % cls.numServers)
-            serverAddr = (socket.gethostbyname(socket.gethostname() ), serverPort)
+            serverPort = cls.basePort + 1 + ((self.ID + i) % cls.numServers)
+            serverAddr = (socket.gethostbyname(
+                socket.gethostname()), serverPort)
             self.serverAddresses.append(serverAddr)
             # print("Added outgoing server address", serverAddr)
 
     def start(self):
         # Setup my socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind( (socket.gethostname(), self.port) )
+        self.sock.bind((socket.gethostname(), self.port))
         self.printLog(f"Started server at port {self.port}")
 
         # Recover from stable storage (save file) if there is one
@@ -95,7 +97,10 @@ class Server:
             self.kvstore = self.blockchain.generateKVStore()
 
         # Concurrently handle receiving messages
-        threading.Thread(target=self.handleIncomingMessages, daemon=True).start()
+        threading.Thread(target=self.handleIncomingMessages,
+                         daemon=True).start()
+
+        threading.Thread(target=self.processBlockQueue, daemon=True).start()
 
     def cleanExit(self):
         "Cleanly exits by closing all open sockets and files"
@@ -124,21 +129,23 @@ class Server:
             # Received majority
             self.printLog("I am now the leader!")
             self.isLeader = True
-            self.sendMessage( ("success",), self.nominatorAddress)  # Respond successful nomination to the nominator
+            # Respond successful nomination to the nominator
+            self.sendMessage(("success",), self.nominatorAddress)
             # print(f"self.valsAllNone: {self.valsAllNone}")
             if self.valsAllNone:
                 pass
                 # self.myVal will be set in self.processOperationQueue
-                
+
             else:
                 self.myVal = self.valWithHighestB
 
             # Broadcast accept
-            self.broadcastToServers("accept", self.ballotNum, self.myVal)
+            # self.broadcastToServers("accept", self.ballotNum, self.myVal)
 
         else:
             self.printLog("I lost the election")
-            self.sendMessage( ("failure",), self.nominatorAddress)  # Respond failure nomination to the nominator
+            # Respond failure nomination to the nominator
+            self.sendMessage(("failure",), self.nominatorAddress)
             pass
 
     def sendMessage(self, msgTokens, destinationAddr):
@@ -147,17 +154,19 @@ class Server:
         If the link to destinationAddr is broken, then nothing will arrive.
         """
 
-        msgTokenStrings = [ str(token)
-                            for token in msgTokens]  # Convert tokens to strings
+        msgTokenStrings = [str(token)
+                           for token in msgTokens]  # Convert tokens to strings
         msg = '-'.join(msgTokenStrings)  # Separate tokens by delimiter
 
-        print(f"Sent message \"{msg}\" to machine at port {destinationAddr[1]}")
+        print(
+            f"Sent message \"{msg}\" to machine at port {destinationAddr[1]}")
 
         if destinationAddr[1] in self.brokenLinks:
             # For simulating broken links, the message is sent but never arrives
             return
-        
-        threading.Thread(target=self._sendMessageWithDelay, args=(msg, destinationAddr), daemon=True).start()
+
+        threading.Thread(target=self._sendMessageWithDelay, args=(
+            msg, destinationAddr), daemon=True).start()
 
     def _sendMessageWithDelay(self, msg, destinationAddr):
         "Only meant to be used in conjunction with self.sendMessage() to unblock with simulated delay"
@@ -171,7 +180,8 @@ class Server:
     def handleIncomingMessages(self):
 
         while True:
-            data, addr = self.sock.recvfrom(4096)  # Blocks until a message arrives
+            # Blocks until a message arrives
+            data, addr = self.sock.recvfrom(4096)
 
             if addr[1] in self.brokenLinks:
                 # For simulating broken links, the message never arrives
@@ -191,9 +201,10 @@ class Server:
                 if msgType == "prepare":
                     bal = eval(msgArgs[1])
 
-                    if bal >= self.ballotNum and bal.depth >= self.blockchain.depth:
+                    if bal >= self.ballotNum and bal.depth >= self.ballotNum.depth:
                         self.ballotNum = bal
-                        self.sendMessage(("promise", self.ballotNum, self.acceptNum, self.acceptVal), addr)
+                        self.sendMessage(
+                            ("promise", self.ballotNum, self.acceptNum, self.acceptVal), addr)
 
                 # Promise
                 elif msgType == "promise":
@@ -219,7 +230,8 @@ class Server:
                 # From client
                 if msgType == "leader":
                     self.nominatorAddress = addr    # Track the nominator for responding
-                    threading.Thread(target=self.electionPhase, daemon=True).start()
+                    threading.Thread(target=self.electionPhase,
+                                     daemon=True).start()
 
             # From client or server
 
@@ -232,14 +244,44 @@ class Server:
 
                 if self.isLeader:
                     self.requestQueue.put(request)
+                    print("Added request to requestQueue")
                 else:
                     # Forward request to leader hint
-                    self.printLog(f"Forwarding request {requestID} to server at {self.leaderHintAddress}")
+                    self.printLog(
+                        f"Forwarding request {requestID} to server at {self.leaderHintAddress}")
                     self.sendMessage(msgArgs, self.leaderHintAddress)
 
     def printLog(self, string):
         "Prints the input string with the server ID prefixed"
         print(f"[SERVER {self.ID}] {string}")
+
+    def processBlockQueue(self):
+        print("In processBlockQueue()")
+        while True:
+            if self.isLeader and not self.requestQueue.empty:
+                if self.myVal
+                self.replicationPhase()
+
+    def replicationPhase(self):
+        # [TODO]: Incoporate requestID into Block class and modify this function
+
+        if self.myVal != None:
+            self.broadcastToServers("accept", self.ballotNum, self.myVal)
+        else:
+            currRequest = self.requestQueue.get()
+
+            # Create new block to add to Blockchain
+            if not self.blockchain._list:
+                prevBlock = None
+            else:
+                prevBlock = self.blockchain._list[len(
+                    self.blockchain._list) - 1]
+
+            self.myVal = Block(currRequest[0], prevBlock)
+            self.blockchain.append(self.myVal)
+
+            self.broadcastToServers("accept", self.ballotNum, self.myVal)
+
 
 def handleUserInput():
     while True:
@@ -272,7 +314,7 @@ def handleUserInput():
                     self.printLog(f"Fixed the link to {dstPort}")
                 else:
                     self.printLog(f"The link to {dstPort} is not broken")
-            
+
             elif cmd == "broadcast":
                 msg = cmdArgs[1]
                 server.broadcastToServers(msg)
@@ -286,7 +328,7 @@ def handleUserInput():
 
                 elif varName == "blockchain" or varName == "bc":
                     pprint.pprint(server.blockchain._list)
-                
+
                 elif varName == "kvstore" or varName == "kv":
                     pprint.pprint(server.kvstore._dict)
 
@@ -301,11 +343,13 @@ def handleUserInput():
                 msg = cmdArgs[1]
                 recipient = (socket.gethostname(), int(cmdArgs[2]))
 
-                server.sendMessage( (msg,), recipient)
+                server.sendMessage((msg,), recipient)
+
 
 def DEBUG():
     print(f"num of running threads: {threading.active_count()}")
     print(f"promiseCount: {server.promiseCount}")
+
 
 # Parse cmdline args
 if len(sys.argv) != 2:
