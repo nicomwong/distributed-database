@@ -48,6 +48,7 @@ class Server:
     basePort = 8000
     numServers = 3
     electionTimeout = 6 # Timeout to wait for majority promises after broadcasting prepare
+    replicationTimeout = 6  # Timeout to wait for majority accepted after broadcasting accept (leader-only)
 
     def __init__(self, serverID):
         cls = self.__class__
@@ -177,18 +178,26 @@ class Server:
                 self.requestQueue.queue.clear()
 
     def replicationPhase(self):
-        # Self-acceptance of the block
-        self.blockchain.accept(self.myVal)
-        self.acceptVal = self.myVal
-        self.acceptNum = self.ballotNum
+        cls = self.__class__
 
         # Broadcast accept to servers
+        self.printLog("Broadcasting accept")
         self.broadcastToServers("accept", self.ballotNum, self.myVal)
 
-        # Wait for a majority of accepted messages
-        self._waitForMajorityAccepted(self.myVal)
+        # Wait for a majority of accepted messages but with a timeout
+        terminate = False
+        timeoutThread = threading.Thread(target=self._waitForMajorityAccepted, args=(self.myVal, lambda:terminate,), daemon=True)
+        timeoutThread.start()
+        timeoutThread.join(cls.replicationTimeout)
 
-    def _waitForMajorityAccepted(self, val):
+        # Check if timed out
+        if timeoutThread.is_alive():   # Timed out
+            self.printLog("Timed out waiting for a majority of accepted. Relinquishing leadership.")
+            self.isLeader = False
+            terminate = True
+            return
+
+    def _waitForMajorityAccepted(self, val, terminate):
         "Blocks until a majority of accepted are received for val"
         cls = self.__class__
         while self.acceptedCount[val] <= cls.numServers / 2:
