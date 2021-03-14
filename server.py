@@ -55,6 +55,7 @@ class Server:
 
         # My address
         self.ID = serverID
+        self.ip = socket.gethostbyname(socket.gethostname() )
         self.port = cls.basePort + self.ID
 
         # Simulation variables
@@ -69,8 +70,7 @@ class Server:
         # Main Paxos variables
         self.ballotNum = BallotNum(0, self.ID, 0)
         self.isLeader = False
-        self.leaderHintAddress = (socket.gethostbyname(
-            socket.gethostname()), cls.basePort + 1)  # Default hint is Server 1
+        self.leaderHintAddress = (socket.gethostbyname(socket.gethostname() ), cls.basePort + 1)  # Default hint is Server 1
 
         # Election phase variables
         self.valsAllNone = True
@@ -208,9 +208,9 @@ class Server:
         Sends a message with components msgTokens to destinationAddr with a simulated self.propagationDelay second delay (Non-blocking).
         If the link to destinationAddr is broken, then nothing will arrive.
         """
+        cls = self.__class__
 
-        msgTokenStrings = [str(token)
-                           for token in msgTokens]  # Convert tokens to strings
+        msgTokenStrings = [str(token) for token in msgTokens]  # Convert tokens to strings
         msg = '-'.join(msgTokenStrings)  # Separate tokens by delimiter
 
         if cls.debugMode:
@@ -220,8 +220,7 @@ class Server:
             # For simulating broken links, the message is sent but never arrives
             return
 
-        threading.Thread(target=self._sendMessageWithDelay, args=(
-            msg, destinationAddr), daemon=True).start()
+        threading.Thread(target=self._sendMessageWithDelay, args=(msg, destinationAddr), daemon=True).start()
 
     def _sendMessageWithDelay(self, msg, destinationAddr):
         "Only meant to be used in conjunction with self.sendMessage() to unblock with simulated delay"
@@ -320,15 +319,13 @@ class Server:
                         # Reset Accept-phase variables
                         self.acceptNum = BallotNum(0, self.ID, 0)
                         self.acceptVal = None
-                        del(self.acceptedCount[val])
 
             else:
                 # From client
                 if msgType == "leader":
                     self.printLog(f"Nominated to be leader by client at {addr[1]}")
                     self.nominatorAddress = addr    # Track the nominator for responding
-                    threading.Thread(target=self.electionPhase,
-                                     daemon=True).start()
+                    threading.Thread(target=self.electionPhase, daemon=True).start()
 
             # From client or server
 
