@@ -54,7 +54,7 @@ class Block:
             _hash = int(hashFunc.hexdigest(), 16)
 
         # Found a nonce such that the hash that satisfies the critera
-        print(f"Calculated nonce {nonce} such that h = {_hash}")
+        print(f"Calculated nonce {nonce} such that h = {str(_hash)[-10:]}")
         return nonce
 
     @classmethod
@@ -69,7 +69,7 @@ class Block:
             if prevBlock.hashPointer:
                 hashFunc.update( prevBlock.hashPointer.to_bytes(32, byteorder='big') )
             # print(f"Calculated hash pointer {hashFunc.hexdigest()}")
-            return hashFunc.hexdigest()
+            return hashFunc.hexdigest()[-10:]
 
     def __init__(self, operation, nonce, hashPointer, requestID):
         self.operation = operation
