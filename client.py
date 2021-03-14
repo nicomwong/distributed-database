@@ -8,6 +8,9 @@ from Operation import Operation
 
 class Client:
 
+    # Testing vars
+    debugMode = False
+
     basePort = 7000
     serverBasePort = 8000
     numServers = 3
@@ -59,6 +62,7 @@ class Client:
             while self.operationQueue.qsize():
                 self._response = None    # Clear the response holder
 
+                self.printLog(f"Sending request {self.requestID} to leader")
                 self.sendToLeader("request", self.operationQueue.queue[0], self.requestID)  # Send operation to leader and req ID
 
                 terminate = False   # Thread termination flag
@@ -93,6 +97,7 @@ class Client:
         while True:
             self._response = None    # Clear the response holder
 
+            self.printLog(f"Nominating {self.leaderAddress[1]} to be leader")
             self.sendToLeader("leader")   # Send nomination
 
             # Start a thread for timeout
@@ -149,13 +154,15 @@ class Client:
         msg = '-'.join(msgTokenStrings)  # Separate tokens by delimiter
 
         self.sock.sendto(msg.encode(), destinationAddr)
-        print(f"Sent message \"{msg}\" to server at port {destinationAddr[1]}")
+        if self.__class__.debugMode:
+            print(f"Sent message \"{msg}\" to server at port {destinationAddr[1]}")
 
     def handleIncomingMessages(self):
         while True:
             data, addr = self.sock.recvfrom(4096)
             msg = data.decode()
-            print(f"Received message \"{msg}\" from machine at {addr}")
+            if self.__class__.debugMode:
+                print(f"Received message \"{msg}\" from machine at {addr}")
 
             if addr == self.leaderAddress:
                 # Communicating with leader or nominee
