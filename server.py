@@ -58,6 +58,9 @@ class Server:
         self.ip = socket.gethostbyname(socket.gethostname() )
         self.port = cls.basePort + self.ID
 
+        # Backup file
+        self.backupBlockchainFileName = f"server{self.ID}_blockchain"
+
         # Simulation variables
         self.propagationDelay = 2
         self.brokenLinks = set()
@@ -118,7 +121,8 @@ class Server:
     def electionPhase(self):
         cls = self.__class__
 
-        # Increment ballotNum
+        # Update ballotNum fields
+        self.ballotNum.depth = self.blockchain.depth
         self.ballotNum.num += 1
 
         # Reset election phase variables
@@ -128,7 +132,7 @@ class Server:
         self.promiseCount = 0
 
         # Broadcast prepare
-        self.printLog("Broadcasting prepare")
+        self.printLog(f"Broadcasting \"prepare\" with {self.ballotNum}")
         self.broadcastToServers("prepare", self.ballotNum)
 
         # Start a thread for timeout
@@ -148,6 +152,7 @@ class Server:
         self.printLog("Received a majority of promises. I am now the leader!")
         self.isLeader = True
         self.sendMessage( ("success",), self.nominatorAddress)  # Respond successful nomination to the nominator
+        self.printLog("Broadcasting \"I am leader\" to other servers")
         self.broadcastToServers("I am leader", me=False)  # Broadcast election result to the other servers
 
         if not self.valsAllNone:
@@ -180,8 +185,11 @@ class Server:
     def replicationPhase(self):
         cls = self.__class__
 
+        # Update ballotNum depth
+        self.ballotNum.depth = self.blockchain.depth
+
         # Broadcast accept to servers
-        self.printLog("Broadcasting accept")
+        self.printLog(f"Broadcasting \"accept\" with {self.ballotNum}")
         self.broadcastToServers("accept", self.ballotNum, self.myVal)
 
         # Wait for a majority of accepted messages but with a timeout
@@ -261,10 +269,10 @@ class Server:
                 if msgType == "prepare":
                     bal = eval(msgArgs[1])
 
-                    if bal >= self.ballotNum and bal.depth >= self.ballotNum.depth:
+                    if bal >= self.ballotNum and bal.depth >= self.blockchain.depth:
                         self.ballotNum = bal
                         self.sendMessage( ("promise", self.ballotNum, self.acceptNum, self.acceptVal), addr)
-                        self.printLog(f"Responding promise to {addr[1]}")
+                        self.printLog(f"Responding promise to {addr[1]} for ballot {self.ballotNum}")
 
                 # Promise
                 elif msgType == "promise":
@@ -295,9 +303,10 @@ class Server:
                     if b >= self.ballotNum and b.depth >= self.ballotNum.depth:
                         self.acceptNum = b
                         self.acceptVal = val
-                        self.blockchain.accept(val)
+                        self.blockchain.accept(val, b.depth)
+                        self.blockchain.write(self.backupBlockchainFileName)
                         self.broadcastToServers("accepted", b, val) # For N^2 "accepted" message optimization of Decide phase
-                        self.printLog(f"Received accept from {addr[1]}. Broadcasting accepted")
+                        self.printLog(f"Received accept from {addr[1]} for ballot {self.ballotNum}. Broadcasting \"accepted\"")
 
                 elif msgType == "accepted": # accepted-BallotNum(...)-Block(...)
                     b = eval(msgArgs[1])
@@ -307,10 +316,11 @@ class Server:
 
                     if self.acceptedCount[val] == cls.numServers // 2 + 1:
                         # Received majority "accepted"
-                        self.printLog(f"Received majority accepted. Deciding on value for request {val.requestID}")
+                        self.printLog(f"Received majority accepted. Deciding on value for request {val.requestID} and depth {b.depth}")
 
                         # Decide on val
-                        self.blockchain.decide(val)
+                        self.blockchain.decide(val, b.depth)
+                        self.blockchain.write(self.backupBlockchainFileName)
                         self.kvstore.processBlock(val)
 
                         # Leader sends the query answer to the requester
@@ -374,7 +384,7 @@ def handleUserInput():
 
         if len(cmdArgs) == 1:
             if cmd == "failProcess":
-                self.printLog("Crashing...")
+                server.printLog("Crashing...")
                 server.cleanExit()
                 sys.exit()
 
@@ -386,17 +396,17 @@ def handleUserInput():
                 dstPort = int(cmdArgs[1])
                 if dstPort not in server.brokenLinks:
                     server.brokenLinks.add(dstPort)
-                    self.printLog(f"Broke the link to {dstPort}")
+                    server.printLog(f"Broke the link to {dstPort}")
                 else:
-                    self.printLog(f"The link to {dstPort} is already broken")
+                    server.printLog(f"The link to {dstPort} is already broken")
 
             elif cmd == "fixLink":
                 dstPort = int(cmdArgs[1])
                 if dstPort in server.brokenLinks:
                     server.brokenLinks.remove(dstPort)
-                    self.printLog(f"Fixed the link to {dstPort}")
+                    server.printLog(f"Fixed the link to {dstPort}")
                 else:
-                    self.printLog(f"The link to {dstPort} is not broken")
+                    server.printLog(f"The link to {dstPort} is not broken")
 
             elif cmd == "broadcast":
                 msg = cmdArgs[1]
@@ -412,11 +422,17 @@ def handleUserInput():
                 elif varName == "blockchain" or varName == "bc":
                     pprint.pprint(server.blockchain._list)
 
+                elif varName == "depth":
+                    print(server.blockchain.depth)
+
                 elif varName == "kvstore" or varName == "kv":
                     pprint.pprint(server.kvstore._dict)
 
                 elif varName == "requestQueue" or varName == "rq":
                     pprint.pprint(server.requestQueue.queue)
+
+                elif varName == "serverList" or varName == "sl":
+                    print(server.serverAddresses)
 
                 else:
                     print("Does not exist")
