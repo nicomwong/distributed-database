@@ -67,15 +67,16 @@ class Block:
             hashFunc.update(repr(prevBlock.operation).encode() +
                             prevBlock.nonce.encode())
             if prevBlock.hashPointer:
-                hashFunc.update( prevBlock.hashPointer.to_bytes(32, byteorder='big') )
+                hashFunc.update( prevBlock.hashPointer.encode() )
             # print(f"Calculated hash pointer {hashFunc.hexdigest()}")
             return hashFunc.hexdigest()[-10:]
 
-    def __init__(self, operation, nonce, hashPointer, requestID):
+    def __init__(self, operation, nonce, hashPointer, requestID, status="tentative"):
         self.operation = operation
         self.hashPointer = hashPointer
         self.nonce = nonce
         self.requestID = requestID
+        self.status = status
 
     def __hash__(self):
         return hash( (self.operation, self.hashPointer, self.nonce, self.requestID) )
@@ -93,27 +94,40 @@ class Block:
         return cls(operation, nonce, hashPointer, requestID)
 
     def __repr__(self):
-        return f"Block({repr(self.operation)}, {repr(self.nonce)}, {repr(self.hashPointer)}, {repr(self.requestID)})"
+        return f"Block({repr(self.operation)}, {repr(self.nonce)}, {repr(self.hashPointer)}, {repr(self.requestID)}, {repr(self.status)})"
 
 
 class Blockchain:
     def __init__(self):
         self._list = list()
         self.depth = 0  # Next index that is either empty or has a tentative block
+        self.lastAcceptedRequestID = None
+        self.lastDecidedRequestID = None
 
     def __repr__(self):
         return repr(self._list)
 
-    def append(self, block: Block):
+    def append(self, block):
         self._list.append(block)
 
-    def accept(self, block: Block):
-        # [TODO]
-        pass
+    def accept(self, block, index):
+        if self.lastAcceptedRequestID == block.requestID or self.lastDecidedRequestID == block.requestID:
+            # Do nothing, already accepted/decided this request
+            return
+        if index == len(self._list):
+            self._list.append(block)
+        else:
+            self._list[index] = block
+        self.lastAcceptedRequestID = block.requestID
 
-    def decide(self, block: Block):
-        # [TODO]
-        pass
+    def decide(self, block, index):
+        if self.lastDecidedRequestID == block.requestID:
+            # Do nothing, already decided this request
+            return
+        block.status = "decided"
+        self._list[index] = block
+        self.depth += 1
+        self.lastDecidedRequestID = block.requestID
 
     def generateKVStore(self):
         "Returns the KVStore generated from performing the blockchain's operations in order"
