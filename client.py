@@ -16,7 +16,7 @@ class Client:
     numServers = 3
 
     nominationTimeout = 10  # Timeout for receiving a nomination result response
-    queryTimeout = 10       # Timeout for receiving a response after sending a query
+    queryTimeout = 12       # Timeout for receiving a response after sending a query
     
     def __init__(self, clientID):
         cls = self.__class__
@@ -164,9 +164,8 @@ class Client:
             if self.__class__.debugMode:
                 print(f"Received message \"{msg}\" from machine at {addr}")
 
-            if addr == self.leaderAddress:
-                # Communicating with leader or nominee
-                self._response = msg
+            # Communicating with leader or nominee
+            self._response = msg
 
     def printLog(self, string):
         "Prints the input string with the client ID prefixed"
