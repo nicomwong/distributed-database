@@ -11,4 +11,4 @@ First, This implementation assumes a permissioned system, so the user must speci
 
 * In **server.py**, set `Server.numServers` to the number of desired servers.
 
-* In **client.py**, set `Client.numServers` to the same number.
+* In **client.py**, set `Client.numServers` to the _same_ number.
