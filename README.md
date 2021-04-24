@@ -2,7 +2,7 @@
 
 From UCSB CS 171 Distributed Systems
 
-This project implements the Paxos protocol for consensus in a distributed system. This specific implementation gaurantees the consistency of a replicated, append-only block chain and key-value store.
+This project implements the Paxos protocol for fault-tolerant consensus in a distributed system. This specific implementation gaurantees the consistency of a replicated, append-only block chain and key-value store.
 
 
 # How to Use
@@ -31,3 +31,12 @@ Third, initiate commands through a client! The available commands are as follows
 <br/>
 
 Fourth, wait for a query response to be received.
+
+# Fault-Tolerance
+
+As long as at least a majority of servers is alive (> **N**/2), the three [Paxos properties](https://en.wikipedia.org/wiki/Paxos_(computer_science)#Safety_and_liveness_properties) hold.
+
+To test this, you can pass the following commands to the _server_ processes:
+* `failProcess` simulates a server crash
+* `failLink <destinationPort>` breaks the link between the current server and the machine with the given destination port
+* `fixLink <destinationPort>` fixes the link (_i.e._ undoes `failLink`)
