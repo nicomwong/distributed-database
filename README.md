@@ -12,6 +12,8 @@ First, this implementation assumes a permissioned system, so the user must speci
 * In **server.py**, set `Server.numServers` to the number of desired servers **N**.
 * In **client.py**, set `Client.numServers` to **N**.
 
+<br/>
+
 Second, start the servers and clients. Note that each server or client must be run in its own process (e.g. a separate bash process).
 
 * Start the servers by running `$ python3 server.py <serverID>` **N** times with `serverID = 1, 2, 3, ..., N`.
@@ -20,10 +22,12 @@ Second, start the servers and clients. Note that each server or client must be r
 * Start the client(s) by running `$ python3 client.py <clientID>` once for each desired client and each with a unique `clientID` in the set `{1, 2, 3, ..., 999}`.
    * For example, if you want 2 clients, you can run `$ python3 client.py 1` and `$ python3 client.py 4` on separate terminals.
 
-Third, initiate commands through a client!
+<br/>
 
-* The available commands are as follows:
-   * `get <key>` where `key` is a Python literal such as `"a string"`, `'a string'`, `1`, `{'key1':'val1'}`, etc.
-   * `put <key> <value>` where `key` and `value` are Python literals.
+Third, initiate commands through a client! The available commands are as follows:
+* `get <key>` where `key` is a Python literal such as `"a string"`, `'a string'`, `1`, `{'key1':'val1'}`, etc.
+* `put <key> <value>` where `key` and `value` are Python literals.
+
+<br/>
 
 Fourth, wait for a query response to be received.
