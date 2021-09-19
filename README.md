@@ -4,6 +4,7 @@ From UCSB CS 171 Distributed Systems
 
 This project implements the Paxos protocol for fault-tolerant consensus in a distributed system. This specific implementation gaurantees the consistency of a replicated, append-only block chain and key-value store.
 
+The wikipedia page for the Paxos consensus protocol can be found here: https://en.wikipedia.org/wiki/Paxos_(computer_science)
 
 # How to Use
 
