@@ -1,7 +1,5 @@
 # Paxos Block Chain
 
-UCSB CS 171 Distributed Systems
-
 ## The Concept
 
 #### TL;DR
