@@ -3,7 +3,7 @@
 ## TL;DR
 This project implements the "Multi-Paxos" version of the Paxos Consensus protocol, which is a harder but more capable version of the basic protocol. At a high level, the protocol gaurantees the consistent replication of some arbitrary data structure across a distributed system as long as the majority of the servers are alive.
 
-This implementation maintains a key-value store among *N* servers being consumed by *M* clients. Clients request that the K-V store be updated by a transaction. Many clients can be sending many requests at a time. To handle this, the protocol implements some concept of server "leader"-ship, "nomination" of the leader, and an "election" round, and the clients try to figure out who the leader is at any given moment. The key-value store is the primary data being served and the blockchain just serves as a transaction log for each server to maintain consistency.
+This implementation maintains a key-value store among *N* servers being consumed by *M* clients. Clients request that the K-V store be updated by a transaction. Many clients can be sending many requests at a time. To handle this, the protocol implements some concept of server "leader"-ship, "nomination" of the leader, and an "election" round, and the clients try to figure out who the leader is at any given moment. When a `key:value` pair is sent to the leader, it goes through several phases to replicate the data, ensure fault-tolerance, and ensure data consistency. As for the data structures, the key-value store is the primary data being served and the blockchain is just a transaction log used by each server to check its local state machine and transaction log against its peers'.
 
 ## How to use it?
 
