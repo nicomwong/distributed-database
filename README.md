@@ -7,7 +7,7 @@ This implementation maintains a key-value store among *N* servers being consumed
 
 One of the difficulties is that many clients can be sending many requests at a time. To handle this, the protocol implements some concept of server "leader"-ship, "nomination", and "election". When a key-value pair is sent to the leader, it goes through various phases to replicate the data while maintaining fault-tolerance and ensuring data consistency across the servers. 
 
-## How to use it?
+## How Can I Play with It?
 
 1. this implementation assumes a permissioned system, so the user must specify the number of servers. To do this:
 
@@ -34,7 +34,10 @@ One of the difficulties is that many clients can be sending many requests at a t
 
 4. wait for a query response to be received.
 
-## Data structures
+
+## Concepts and Notes
+
+### Data structures
 
 #### Key-Value Store
 The key-value (or K-V) store is the primary data structure being served to the clients.
@@ -42,7 +45,7 @@ The key-value (or K-V) store is the primary data structure being served to the c
 #### Blockchain
 The blockchain serves as a transaction log. At a conceptual level, it is a distributed, finite state machine whose main purpose is to maintain data consistency across the cluster. 
 
-## Machines
+### Machines
 
 #### Servers
 The servers each have a key-value store whose contents reflect the current state of the server's blockchain, which is essentially a log of the transactions (that the server knows of at the moment).
@@ -52,7 +55,7 @@ The servers communicate with each other and propogate requests to the "leader" s
 #### Clients
 Clients can request transactions that conflict with each other in data or in time. For example, the same key could be getting modified; or, two different clients could be sending requests at the same time, but which one gets picked first?
 
-## Misc. Notes
+### Miscellaneous Notes
 #### How is the network simulated?
 Various timeout variables are used in the client and server classes. Timeout simulates a time delay when any message is passed across the network.
 
