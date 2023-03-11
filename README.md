@@ -1,9 +1,11 @@
 # Distributed Key-Value Store via Multi-Paxos
 
 ## TL;DR
-This project implements the "Multi-Paxos" version of the Paxos Consensus protocol, which is a harder but more capable version of the basic protocol. At a high level, the protocol gaurantees the consistent replication of some arbitrary data structure across a distributed system as long as the majority of the servers are alive.
+This project implements the "Multi-Paxos" version of the Paxos Consensus protocol which is harder but more more efficient than basic Paxos. At a high level, the protocol gaurantees the consistent replication of some arbitrary data structure across a distributed system as long as a majority of the servers are alive.
 
-This implementation maintains a key-value store among *N* servers being consumed by *M* clients. Clients request that the K-V store be updated by a transaction. Many clients can be sending many requests at a time. To handle this, the protocol implements some concept of server "leader"-ship, "nomination" of the leader, and an "election" round, and the clients try to figure out who the leader is at any given moment. When a `key:value` pair is sent to the leader, it goes through several phases to replicate the data, ensure fault-tolerance, and ensure data consistency. As for the data structures, the key-value store is the primary data being served and the blockchain is just a transaction log used by each server to check its local state machine and transaction log against its peers'.
+This implementation maintains a key-value store among *N* servers being consumed by *M* clients. Clients can issue 'put' or 'get' requests to the K-V store. The two distributed data structures in this implementation are a key-value store and a blockchain. The key-value store is stored as multiple instances across the servers and must be managed by the distributed protocol. The blockchain is a transaction log replicated on every server used to validate consistency of the key-value store.
+
+One of the difficulties is that many clients can be sending many requests at a time. To handle this, the protocol implements some concept of server "leader"-ship, "nomination", and "election". When a key-value pair is sent to the leader, it goes through various phases to replicate the data while maintaining fault-tolerance and ensuring data consistency across the servers. 
 
 ## How to use it?
 
