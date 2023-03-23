@@ -1,4 +1,4 @@
-# Distributed Key-Value Store via Multi-Paxos Consensus Algorithm
+# Paxos Protocol
 
 ## Summary
 This project implements the "Multi-Paxos" version of the Paxos Consensus protocol which is harder but more more efficient than basic Paxos. At a high level, the protocol gaurantees the consistent replication of some arbitrary data structure across a distributed system as long as a majority of the servers are alive.
