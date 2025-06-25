@@ -1,7 +1,7 @@
 # Paxos Protocol
 
 ## Summary
-This project implements the "Multi-Paxos" version of the Paxos Consensus protocol which is harder but more more efficient than basic Paxos. At a high level, the protocol gaurantees the consistent replication of some arbitrary data structure across a distributed system as long as a majority of the servers are alive.
+This project implements the "Multi-Paxos" version of the Paxos Consensus protocol which is harder but more more efficient than basic Paxos. At a high level, the protocol guarantees the consistent replication of some arbitrary data structure across a distributed system as long as a majority of the servers are alive.
 
 This implementation maintains a key-value store among *N* servers being consumed by *M* clients. Clients can issue *put* or *get* requests to the key-value store. The two distributed data structures in this implementation are a key-value store and a blockchain. The key-value store is stored as multiple instances across the servers and must be managed by the distributed protocol. The blockchain is a transaction log replicated on every server used to validate consistency of the key-value store.
 
