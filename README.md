@@ -68,4 +68,4 @@ The wikipedia page for the Paxos consensus protocol: https://en.wikipedia.org/wi
 Have fun, and play with it! It's really fun to play with, actually. You can set `debugMode` to `True` [here](https://github.com/nicomwong/paxosBlockChain/blob/main/client.py#L12) and [here](https://github.com/nicomwong/paxosBlockChain/blob/main/server.py#L45) to see the requests and responses in real-time. (They are output to stdout.)
 
 
-###### Project of UCSB CS 171 Distributed Systems
+###### Project assigned in UCSB CS 171 Distributed Systems Winter 2021
